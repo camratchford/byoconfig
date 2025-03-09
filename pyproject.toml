@@ -1,0 +1,79 @@
+
+[project]
+name = 'byoconfig'
+description = 'A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more.'
+authors = [
+    {name = 'Cam Ratchford', email = 'camratchford@gmail.com'},
+]
+
+classifiers = [
+    'Development Status :: 3 - Alpha',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3 :: Only',
+    'Intended Audience :: Developers',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: System Administrators',
+    'Operating System :: POSIX :: Linux',
+    'Environment :: Console',
+    'Environment :: Win32 (MS Windows)',
+    'Environment :: MacOS X',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+]
+version = "0.0.5"
+requires-python = '>=3.7'
+dependencies = [
+    "pyyaml",
+    "toml"
+]
+
+[project.optional-dependencies]
+development = [
+    "mkdocs",
+    "mkdocs-material",
+    "ruff",
+    "pytest",
+    "mypy",
+    "build",
+    "twine"
+]
+
+[project.urls]
+Homepage = 'https://github.com/camratchford/byoconfig'
+Source = 'https://github.com/camratchford/byoconfig'
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["byoconfig", "byoconfig.sources"]
+
+[tool.setuptools.package-dir]
+"byoconfig" = "byoconfig"
+"byoconfig.sources" = "byoconfig/sources"
+
+[tool.ruff]
+exclude = [
+    "tests/fixtures/**/*"
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
