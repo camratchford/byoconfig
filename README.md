@@ -22,6 +22,9 @@ pip install byconfig
 
 ## Usage
 
+
+### From file
+
 ```python
 from pathlib import Path
 
@@ -31,7 +34,12 @@ from byoconfig import Config
 # imagining the contents of config.yaml are:
 important_path: path/that/must/exists
 """
+
+# Auto-detects the file type based on file extension suffix
 conf = Config('path/to/config.yaml')
+
+# Alternatively, specify a forced_file_type argument (One of 'YAML', 'TOML', or 'JSON'
+# conf = Config("path/to/config", forced_file_extension="YAML")
 
 def ensure_file(path: str):
     Path(path).mkdir(parents=True)
@@ -42,7 +50,27 @@ if __name__ == "__main__":
 
 ```
 
-## Loading plugins
+### From Environment Variables
+
+```python
+
+from byoconfig import Config
+
+conf = Config(env_prefix="MY_APP")
+
+# Imagining that you have an env var `MY_APP_var_1` set
+print(conf.var_1)
+
+# If you want to load all of the environment variables, use the '*' wildcard as env_prefix
+
+conf2 = Config(env_prefix="*")
+
+print(conf2.PATH)
+
+```
+
+
+### From Custom plugins
 
 ```python
 
@@ -50,7 +78,6 @@ from byoconfig.sources import BaseVariableSource
 from byoconfig import Config
 
 # Subclass the BaseVariableSource class
-# (unless you require the methods unique to FileVariableSource or EnvVariableSource classes)
 class MyVarSource(BaseVariableSource):
     def __init__(self, init_options):
         # Using an imaginary function 'get_external_data' in place of something like an http request or DB query
@@ -64,6 +91,40 @@ my_config = Config("some/file/data.json")
 
 # Include your plugin, merging the data from MyVarSource and the config object above
 # You can pass kwargs to include as if you're passing them to MyVarSource's __init__ method.
-my_config.include(MyVarSource, init_options={'init_options': 'data'})
+my_config.include(MyVarSource, init_options="some data to initialize your custom data source")
+
 ```
 
+
+### Loading Arbitrary Values
+
+```python
+from byoconfig import Config
+# Via kwargs
+conf = Config(my_var="abc", my_var_2=123)
+
+# Via the set_data method / data property
+conf.set_data({"my_var": "abc"})
+# Equivalent to
+conf.data = {"my_var": "abc"}
+
+```
+
+
+### Dumping Data
+
+```python
+from byoconfig import Config
+
+conf = Config()
+
+# We can pretend that you've loaded your configuration data in conf, and you'd like it output to a file
+# to be used later
+...
+
+# Auto-detects the file-type based on file extension suffix
+conf.dump("running_config.yml")
+# Overriding the auto-detect in case you have no extension
+conf.dump("running_config", forced_file_type="TOML")
+
+```
