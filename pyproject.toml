@@ -4,7 +4,6 @@ version = "0.0.5"
 description = 'A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more.'
 readme = 'README.md'
 requires-python = '>=3.10'
-license = 'MIT'
 authors = [
     {name = 'Cam Ratchford', email = 'camratchford@gmail.com'},
 ]
