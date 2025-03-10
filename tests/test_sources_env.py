@@ -14,8 +14,8 @@ def test_error_modes():
     assert "env_prefix must be a string" in str(exec_info_error.value)
 
     with pytest.raises(BYOConfigError) as exec_info_error:
-        GenericEnvSource("illegal prefix")
-    assert "env_prefix must be a valid environment variable name" in str(
+        GenericEnvSource(env_prefix="illegal prefix")
+    assert " must be a valid environment variable name" in str(
         exec_info_error.value
     )
 
@@ -23,15 +23,15 @@ def test_error_modes():
 def load_env():
     environ.update(
         {
-            "BYO_CONFIG_TEST_VAR1": "value1",
-            "BYO_CONFIG_TEST_VAR2": "value2",
-            "BYO_CONFIG_TEST_var3": "value3",  # The case should be ignored on windows, converted to uppercase
+            "BYO_CONFIG_TEST2_VAR1": "value1",
+            "BYO_CONFIG_TEST2_VAR2": "value2",
+            "BYO_CONFIG_TEST2_var3": "value3",  # The case should be ignored on windows, converted to uppercase
         }
     )
 
 
 def test_load_env():
-    prefix = "BYO_CONFIG_TEST_"
+    prefix = "BYO_CONFIG_TEST2_"
     load_env()
     env_source_1 = GenericEnvSource(prefix)
     # Test that it accepts either _ or no _ at the end of the prefix
