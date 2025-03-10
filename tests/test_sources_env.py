@@ -15,19 +15,22 @@ def test_error_modes():
 
     with pytest.raises(BYOConfigError) as exec_info_error:
         GenericEnvSource("illegal prefix")
-    assert "env_prefix must be a valid environment variable name" in str(exec_info_error.value)
+    assert "env_prefix must be a valid environment variable name" in str(
+        exec_info_error.value
+    )
 
 
 def load_env():
-    environ.update({
-        "BYO_CONFIG_TEST_VAR1": "value1",
-        "BYO_CONFIG_TEST_VAR2": "value2",
-        "BYO_CONFIG_TEST_var3": "value3", # The case should be ignored on windows, converted to uppercase
-    })
+    environ.update(
+        {
+            "BYO_CONFIG_TEST_VAR1": "value1",
+            "BYO_CONFIG_TEST_VAR2": "value2",
+            "BYO_CONFIG_TEST_var3": "value3",  # The case should be ignored on windows, converted to uppercase
+        }
+    )
 
 
 def test_load_env():
-
     prefix = "BYO_CONFIG_TEST_"
     load_env()
     env_source_1 = GenericEnvSource(prefix)
@@ -49,13 +52,13 @@ def test_load_env():
     # Use the wildcard to load all environment variables
     env_source_3 = GenericEnvSource("*")
     # Due to slight difference between the two dictionaries, we will compare a subset of values
-    assert env_source_3.data['COLUMNS'] == environ.get('COLUMNS')
+    assert env_source_3.data["COLUMNS"] == environ.get("COLUMNS")
     if platform.system() == "Windows":
-        assert env_source_3.data['HOMEDRIVE'] == environ.get('HOMEDRIVE')
-        assert env_source_3.data['HOMEPATH'] == environ.get('HOMEPATH')
+        assert env_source_3.data["HOMEDRIVE"] == environ.get("HOMEDRIVE")
+        assert env_source_3.data["HOMEPATH"] == environ.get("HOMEPATH")
     else:
-        assert env_source_3.data['HOME'] == environ.get('HOME')
-        assert env_source_3.data['USER'] == environ.get('USER')
+        assert env_source_3.data["HOME"] == environ.get("HOME")
+        assert env_source_3.data["USER"] == environ.get("USER")
 
     # Test if using None as the prefix does not result in errors
     env_source_4 = GenericEnvSource(None)

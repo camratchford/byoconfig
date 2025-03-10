@@ -19,25 +19,15 @@ class SQLite3VariableSource(BaseVariableSource):
             So that interface is consistent with other VariableSource classes.
     """
 
-    def __init__(
-            self,
-            db_path: str,
-            sql_query: str,
-            variable_name: str,
-            **kwargs
-    ):
-
-        with sqlite3.connect(db_path) as conn:
+    def __init__(self, db_path: str, sql_query: str, variable_name: str, **kwargs):
+        with sqlite3.connect(db_path):
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
             cursor.execute(sql_query)
             data = cursor.fetchall()
             keys = cursor.description
-            results = [
-                dict(zip([key[0] for key in keys], row))
-                for row in data
-            ]
+            results = [dict(zip([key[0] for key in keys], row)) for row in data]
             self.set_data({variable_name: results})
 
 
@@ -48,7 +38,7 @@ if __name__ == "__main__":
     Path(db_path).unlink(missing_ok=True)
 
     conn = sqlite3.connect(db_path)
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(db_path):
         cur = conn.cursor()
         cur.execute(
             """
@@ -83,7 +73,7 @@ if __name__ == "__main__":
         plugin_class=SQLite3VariableSource,
         db_path=db_path,
         sql_query=sql_query,
-        variable_name=variable_name
+        variable_name=variable_name,
     )
 
     print(config.get_data())

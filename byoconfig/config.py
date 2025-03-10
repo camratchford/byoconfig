@@ -10,7 +10,7 @@ from byoconfig.sources import (
 )
 from byoconfig.error import BYOConfigError
 
-__all__ = ['Config']
+__all__ = ["Config"]
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +25,13 @@ class Config(FileVariableSource, EnvVariableSource):
     """
 
     def __init__(
-            self,
-            source_file_path: Optional[str] = None,
-            forced_file_type: Optional[FileTypes] = None,
-            env_prefix: Optional[str] = None,
-            var_source_name: Optional[str] = "Config",
-            precedence: Optional[int] = 1,
-            **kwargs
+        self,
+        source_file_path: Optional[str] = None,
+        forced_file_type: Optional[FileTypes] = None,
+        env_prefix: Optional[str] = None,
+        var_source_name: Optional[str] = "Config",
+        precedence: Optional[int] = 1,
+        **kwargs,
     ):
         """
         Initialize a Config object.
@@ -60,13 +60,14 @@ class Config(FileVariableSource, EnvVariableSource):
             self.precedence = precedence
             self.var_source_name = var_source_name
             super().__init__(
-                source_file=source_file_path,
-                forced_file_type=forced_file_type
+                source_file=source_file_path, forced_file_type=forced_file_type
             )
             super().load_env(env_prefix)
 
             self.set_data(kwargs)
-            logger.debug(f"Config object {self.var_source_name} created with precedence {self.precedence}")
+            logger.debug(
+                f"Config object {self.var_source_name} created with precedence {self.precedence}"
+            )
 
         except BYOConfigError as e:
             raise e
@@ -99,11 +100,13 @@ class Config(FileVariableSource, EnvVariableSource):
                 if k not in sig.parameters:
                     raise BYOConfigError(
                         f"Invalid parameter '{k}' for plugin class '{plugin_class.__name__}'",
-                        self
+                        self,
                     )
             plugin = plugin_class(**kwargs)  # type: ignore
             self.set_data(plugin.get_data())
-            logger.debug(f"Initialized plugin '{plugin_class.__name__}' with data: {plugin.get_data()}")
+            logger.debug(
+                f"Initialized plugin '{plugin_class.__name__}' with data: {plugin.get_data()}"
+            )
 
         except BYOConfigError as e:
             raise e
