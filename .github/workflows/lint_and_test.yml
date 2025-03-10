@@ -1,8 +1,7 @@
-name: Lint and Test
+name: Tests
 on:
   push:
     branches:
-      - 'main'
       - '*.**.*'
       - '*-dev'
 permissions:
