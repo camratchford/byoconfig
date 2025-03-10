@@ -3,7 +3,6 @@ from byoconfig.sources.file import FileVariableSource, FileTypes
 from byoconfig.sources.env import EnvVariableSource
 
 
-
 class NameSource(BaseVariableSource):
     def __init__(self, name: str = "", var_source_name: str = "NameSource", precedence: int = 1, **kwargs):
         self.var_source_name = var_source_name

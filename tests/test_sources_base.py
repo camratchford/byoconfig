@@ -1,7 +1,7 @@
 import pytest
 
 from fixtures.fixture_source_classes import NameSource
-from byo_config.error import BYOConfigError
+from byoconfig.error import BYOConfigError
 
 
 def test_base_source():
