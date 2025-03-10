@@ -1,30 +1,40 @@
-
 [project]
 name = 'byoconfig'
+version = "0.0.4"
 description = 'A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more.'
+readme = 'README.md'
+requires-python = '>=3.8'
+license = 'MIT'
+license-files = ['LICENSE']
 authors = [
     {name = 'Cam Ratchford', email = 'camratchford@gmail.com'},
 ]
-
+keywords = ['heirachaical', 'config', 'yaml', 'toml', 'json', 'plugins']
 classifiers = [
-    'Development Status :: 3 - Alpha',
+    'Development Status :: 4 - Beta',
+    'License :: OSI Approved :: MIT License',
+    'Natural Language :: English',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3 :: Only',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Information Technology',
-    'Intended Audience :: System Administrators',
+    'Operating System :: Microsoft :: Windows',
     'Operating System :: POSIX :: Linux',
-    'Environment :: Console',
-    'Environment :: Win32 (MS Windows)',
-    'Environment :: MacOS X',
+    'Operating System :: MacOS',
+    'Environment :: Plugins',
+    'Intended Audience :: Developers',
     'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: File Formats',
 ]
-version = "0.0.5"
-requires-python = '>=3.7'
+
+
 dependencies = [
-    "pyyaml",
-    "toml"
+    "PyYAML",
+    "toml",
 ]
+
+[project.urls]
+Homepage = 'https://github.com/camratchford/zenplate'
+Source = 'https://github.com/camratchford/zenplate'
+
 
 [project.optional-dependencies]
 development = [
@@ -32,14 +42,9 @@ development = [
     "mkdocs-material",
     "ruff",
     "pytest",
-    "mypy",
     "build",
     "twine"
 ]
-
-[project.urls]
-Homepage = 'https://github.com/camratchford/byoconfig'
-Source = 'https://github.com/camratchford/byoconfig'
 
 [build-system]
 requires = ["setuptools", "setuptools-scm"]
@@ -47,10 +52,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["byoconfig", "byoconfig.sources"]
+package-dir = {"byoconfig" = "byo_config", "byoconfig.sources" = "byo_config/sources"}
 
-[tool.setuptools.package-dir]
-"byoconfig" = "byoconfig"
-"byoconfig.sources" = "byoconfig/sources"
+
 
 [tool.ruff]
 exclude = [
