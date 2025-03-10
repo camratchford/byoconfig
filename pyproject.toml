@@ -49,7 +49,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["byoconfig", "byoconfig.sources"]
-package-dir = {"byoconfig" = "byo_config", "byoconfig.sources" = "byo_config/sources"}
+package-dir = {"byoconfig" = "byoconfig", "byoconfig.sources" = "byoconfig/sources"}
 
 
 
