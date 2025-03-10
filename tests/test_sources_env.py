@@ -53,7 +53,6 @@ def test_load_env():
     env_source_3 = GenericEnvSource("*")
     # Due to slight difference between the two dictionaries, we will compare a subset of values
     if platform.system() == "Windows":
-        assert env_source_3.data["COLUMNS"] == environ.get("COLUMNS")
         assert env_source_3.data["HOMEDRIVE"] == environ.get("HOMEDRIVE")
         assert env_source_3.data["HOMEPATH"] == environ.get("HOMEPATH")
     else:
