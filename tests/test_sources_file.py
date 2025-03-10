@@ -63,14 +63,6 @@ def compare_file_contents(file1, file2):
 
 
 def test_dump_file_modes():
-    example_dict = {
-        "parent": {
-            "some": "thing",
-            "child": {
-                "other": "thing"
-            }
-        }
-    }
     # ensure that output_dir exists
     output_dir.mkdir(exist_ok=True)
     yaml_file = str(example_configs / 'same_as.yaml')
