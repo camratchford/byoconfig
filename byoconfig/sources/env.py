@@ -10,19 +10,15 @@ from byoconfig.error import BYOConfigError
 logger = logging.getLogger(__name__)
 
 
-VALID_ENV_VAR = compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+VALID_ENV_VAR = compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 class EnvVariableSource(BaseVariableSource):
-
     """
     A VariableSource that loads data from environment variables.
     """
-    def __init__(
-            self,
-            env_prefix: Optional[str] = None,
-            **kwargs
-    ):
+
+    def __init__(self, env_prefix: Optional[str] = None, **kwargs):
         """
         Initialize an EnvVariableSource instance.
 
@@ -63,7 +59,10 @@ class EnvVariableSource(BaseVariableSource):
             return
 
         if not VALID_ENV_VAR.match(env_prefix):
-            raise BYOConfigError(f"env_prefix '{env_prefix}' must be a valid environment variable name", self)
+            raise BYOConfigError(
+                f"env_prefix '{env_prefix}' must be a valid environment variable name",
+                self,
+            )
 
         prefix = env_prefix
         if not env_prefix.endswith("_"):
@@ -71,11 +70,7 @@ class EnvVariableSource(BaseVariableSource):
         try:
             if platform.system() == "Windows":
                 prefix = prefix.upper()
-            data = {
-                k.replace(prefix, ""): v
-                for k, v in environ.items()
-                if prefix in k
-            }
+            data = {k.replace(prefix, ""): v for k, v in environ.items() if prefix in k}
 
         except Exception as e:
             msg = e.args[0]

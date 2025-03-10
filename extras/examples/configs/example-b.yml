@@ -1,0 +1,8 @@
+
+# Same as example-a
+favourite_fruit: pineapple
+# Different
+favourite_vegetable: garlic
+favourite_meat: beef
+# Unique to example-b
+favourite_drink: orange juice

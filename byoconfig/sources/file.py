@@ -17,8 +17,8 @@ from byoconfig.error import BYOConfigError
 from byoconfig.sources.base import BaseVariableSource
 
 
-ALLOWED_EXTENSIONS = ['.json', '.yaml', '.yml', '.toml']
-FileTypes = Optional[Literal['JSON', 'YAML', 'TOML']]
+ALLOWED_EXTENSIONS = [".json", ".yaml", ".yml", ".toml"]
+FileTypes = Optional[Literal["JSON", "YAML", "TOML"]]
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +29,10 @@ class FileVariableSource(BaseVariableSource):
     """
 
     def __init__(
-            self,
-            source_file: Optional[str] = None,
-            forced_file_type: FileTypes = None,
-            **kwargs
+        self,
+        source_file: Optional[str] = None,
+        forced_file_type: FileTypes = None,
+        **kwargs,
     ):
         """
         Initialize a FileVariableSource instance.
@@ -57,7 +57,9 @@ class FileVariableSource(BaseVariableSource):
         if source_file is not None:
             source_file_path = Path(source_file)
             if not source_file_path.exists():
-                raise FileNotFoundError(f"Config file {str(source_file_path)} does not exist")
+                raise FileNotFoundError(
+                    f"Config file {str(source_file_path)} does not exist"
+                )
 
             try:
                 data = self.load_file(source_file_path, forced_file_type)
@@ -68,34 +70,19 @@ class FileVariableSource(BaseVariableSource):
                 raise e
 
             except JSONDecodeError as e:
-                raise BYOConfigError(
-                    e.msg,
-                    self
-                )
+                raise BYOConfigError(e.msg, self)
 
             except MarkedYAMLError as e:
-                raise BYOConfigError(
-                    str(e),
-                    self
-                )
+                raise BYOConfigError(str(e), self)
 
             except YAMLError as e:
-                raise BYOConfigError(
-                    str(e.args[0]),
-                    self
-                )
+                raise BYOConfigError(str(e.args[0]), self)
 
             except TomlDecodeError as e:
-                raise BYOConfigError(
-                    e.msg,
-                    self
-                )
+                raise BYOConfigError(e.msg, self)
 
             except Exception as e:
-                raise BYOConfigError(
-                    e.args[0],
-                    self
-                )
+                raise BYOConfigError(e.args[0], self)
 
     def load_file(self, source_file: Path, forced_file_type: FileTypes = None):
         """
@@ -112,7 +99,7 @@ class FileVariableSource(BaseVariableSource):
             raise FileNotFoundError(f"Config file {str(source_file)} does not exist")
         try:
             extension = self._determine_file_type(source_file, forced_file_type)
-            method = self.map_extension_to_load_method(extension, method_type='load')
+            method = self.map_extension_to_load_method(extension, method_type="load")
             return method(source_file)
         except ValueError as e:
             logger.error(f"Error loading file {str(source_file)}")
@@ -126,10 +113,7 @@ class FileVariableSource(BaseVariableSource):
             logger.error(f"Error loading file {str(source_file)}")
             raise e
         except Exception as e:
-            raise BYOConfigError(
-                e.args[0],
-                self
-            )
+            raise BYOConfigError(e.args[0], self)
 
     def dump(self, destination_path: Path, forced_file_type: FileTypes = None):
         """
@@ -147,7 +131,7 @@ class FileVariableSource(BaseVariableSource):
             destination_path.mkdir(mode=0o755, parents=True)
 
         file_type = self._determine_file_type(destination_path, forced_file_type)
-        method = self.map_extension_to_load_method(file_type, method_type='dump')
+        method = self.map_extension_to_load_method(file_type, method_type="dump")
 
         try:
             method(destination_path)
@@ -156,28 +140,32 @@ class FileVariableSource(BaseVariableSource):
             raise e
 
     @staticmethod
-    def _determine_file_type(source_file: Path, forced_file_type: FileTypes = None) -> FileTypes:
+    def _determine_file_type(
+        source_file: Path, forced_file_type: FileTypes = None
+    ) -> FileTypes:
         """
         Determines the file type of the source file. (One of 'JSON', 'YAML', 'TOML')
         """
 
         extension = source_file.suffix
         if not extension and not forced_file_type:
-            raise ValueError(f"File provided [{str(source_file)}] has no file extension")
+            raise ValueError(
+                f"File provided [{str(source_file)}] has no file extension"
+            )
 
         elif extension not in ALLOWED_EXTENSIONS and not forced_file_type:
-            raise ValueError(f"File provided [{str(source_file)}] does not posses one of the allowed file extensions: "
-                             f"{str(ALLOWED_EXTENSIONS)}")
+            raise ValueError(
+                f"File provided [{str(source_file)}] does not posses one of the allowed file extensions: "
+                f"{str(ALLOWED_EXTENSIONS)}"
+            )
         elif forced_file_type:
             extension = f".{forced_file_type}"
 
-        file_type: FileTypes = extension.lstrip(".").upper() # type: ignore
+        file_type: FileTypes = extension.lstrip(".").upper()  # type: ignore
         return file_type
 
     def map_extension_to_load_method(
-            self,
-            file_type: FileTypes,
-            method_type: Literal['load', 'dump']
+        self, file_type: FileTypes, method_type: Literal["load", "dump"]
     ) -> Callable[[Path], dict]:
         """
         Maps the file extension to the appropriate load or dump method.
@@ -192,7 +180,9 @@ class FileVariableSource(BaseVariableSource):
 
         method_name = f"{method_type}_{file_type.lower()}"
         if not hasattr(self, method_name):
-            raise ValueError(f"No FileVariableSource method exists for file type '.{file_type}'")
+            raise ValueError(
+                f"No FileVariableSource method exists for file type '.{file_type}'"
+            )
         return getattr(self, method_name)
 
     @staticmethod
@@ -263,7 +253,9 @@ class FileVariableSource(BaseVariableSource):
                 yaml_dump(self.get_data(), yaml_file)
 
             except MarkedYAMLError as e:
-                logger.error(f"Error dumping YAML file {str(destination_file)}: {e.args[0]}")
+                logger.error(
+                    f"Error dumping YAML file {str(destination_file)}: {e.args[0]}"
+                )
                 raise e
 
             except Exception as e:

@@ -28,6 +28,7 @@ class BaseVariableSource:
             When creating a subclass of BaseVariableSource, add any attributes that
               should not be exported to this set.
     """
+
     var_source_name: str = ""
     precedence: int = 0
     metadata = {"var_source_name", "precedence", "metadata"}
@@ -47,7 +48,11 @@ class BaseVariableSource:
                 f"is not an instance or subclass instance of {self}"
             )
 
-        return {k: v for k, v in instance.__dict__.items() if not k.startswith("_") and k not in self.metadata}
+        return {
+            k: v
+            for k, v in instance.__dict__.items()
+            if not k.startswith("_") and k not in self.metadata
+        }
 
     def get_data(self):
         """
@@ -106,7 +111,7 @@ class BaseVariableSource:
         if args and not all([isinstance(a, Hashable) for a in args]):
             raise BYOConfigError(
                 f"Unable to clear data from object {self} as one or more of the keys are not hashable types.",
-                self
+                self,
             )
 
         keys = args if args else self.__dict__.keys()
@@ -179,7 +184,7 @@ class BaseVariableSource:
         """
         return hash(self) != hash(other)
 
-    def __add__(self, other: Type['BaseVariableSource']):
+    def __add__(self, other: Type["BaseVariableSource"]):
         """
         Merges two instances together, with the instance with the higher precedence instance values overwriting
         the values of the lower precedence instance.
@@ -187,25 +192,25 @@ class BaseVariableSource:
         if other.precedence is None or self.precedence is None:
             raise BYOConfigError(
                 f"Unable to merge object '{other}' with '{self}' as one or both instances have no precedence value.",
-                self
+                self,
             )
 
         if not isinstance(other, self.__class__):
             raise BYOConfigError(
                 f"Unable to merge object '{other}' with '{self}' as they are not instances of the same class.",
-                self
+                self,
             )
 
         if self.var_source_name == other.var_source_name:
             raise BYOConfigError(
                 f"Unable to merge object '{other}' with '{self}' as they share the same name.",
-                self
+                self,
             )
 
         if self == other:
             raise BYOConfigError(
                 f"Unable to merge object '{other}' with '{self}' as they have the same precedence.",
-                self
+                self,
             )
 
         if self > other:
@@ -221,5 +226,3 @@ class BaseVariableSource:
             data.update(other_data)
             self.set_data(data)
             return copy(self)
-
-

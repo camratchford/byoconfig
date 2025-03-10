@@ -1,5 +1,4 @@
-
-__all__ = ['BYOConfigError']
+__all__ = ["BYOConfigError"]
 
 
 class BYOConfigError(ValueError):
@@ -8,6 +7,7 @@ class BYOConfigError(ValueError):
         msg:           The unformatted error message
         instance_name: The name of which VariableSource instance raised the error
     """
+
     def __init__(self, msg, instance):
         errmsg = f"{msg} in VariableSource instance '{instance.var_source_name}'"
         super().__init__(self, errmsg)
@@ -16,4 +16,3 @@ class BYOConfigError(ValueError):
 
     def __reduce__(self):
         return self.__class__, (self.msg, self.instance)
-
