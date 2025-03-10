@@ -1,6 +1,6 @@
 [project]
 name = 'byoconfig'
-version = "0.0.4"
+version = "0.0.5"
 description = 'A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more.'
 readme = 'README.md'
 requires-python = '>=3.8'
@@ -25,15 +25,14 @@ classifiers = [
     'Topic :: File Formats',
 ]
 
-
 dependencies = [
     "PyYAML",
     "toml",
 ]
 
 [project.urls]
-Homepage = 'https://github.com/camratchford/zenplate'
-Source = 'https://github.com/camratchford/zenplate'
+Homepage = 'https://github.com/camratchford/byoconfig'
+Source = 'https://github.com/camratchford/byoconfig'
 
 
 [project.optional-dependencies]
