@@ -3,9 +3,7 @@
 > Bring your own configuration
 
 [![Tests Passing](https://github.com/camratchford/byoconfig/actions/workflows/lint_and_test.yml/badge.svg)](https://github.com/camratchford/byoconfig/actions/workflows/lint_and_test.yml)
-
 [![Build](https://github.com/camratchford/byoconfig/actions/workflows/publish.yml/badge.svg)](https://github.com/camratchford/byoconfig/actions/workflows/publish.yml)
-
 [![PyPi Version](https://img.shields.io/pypi/v/byoconfig)](https://pypi.org/project/byoconfig/)
 
 ## Features
