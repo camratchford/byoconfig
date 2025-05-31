@@ -57,8 +57,8 @@ class Config(FileVariableSource, EnvVariableSource):
                 Arbitrary keyword arguments, to be loaded as class attributes.
         """
         try:
-            self.precedence = precedence
-            self.var_source_name = var_source_name
+            self._precedence = precedence
+            self._var_source_name = var_source_name
             super().__init__(
                 source_file=source_file_path, forced_file_type=forced_file_type
             )
@@ -66,7 +66,7 @@ class Config(FileVariableSource, EnvVariableSource):
 
             self.set_data(kwargs)
             logger.debug(
-                f"Config object {self.var_source_name} created with precedence {self.precedence}"
+                f"Config object {self._var_source_name} created with precedence {self._precedence}"
             )
 
         except BYOConfigError as e:

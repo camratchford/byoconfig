@@ -1,26 +1,26 @@
 [project]
-name = 'byoconfig'
-version = "0.0.6"
-description = 'A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more.'
-readme = 'README.md'
-requires-python = '>=3.10'
+name = "byoconfig"
+version = "0.1.0"
+description = "A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more."
+readme = "README.md"
+requires-python = ">=3.10"
 authors = [
-    {name = 'Cam Ratchford', email = 'camratchford@gmail.com'},
+    {name = "Cam Ratchford", email = "camratchford@gmail.com"},
 ]
-keywords = ['heirachaical', 'config', 'yaml', 'toml', 'json', 'plugins']
+keywords = ["config", "yaml", "toml", "json", "plugins"]
 classifiers = [
-    'Development Status :: 4 - Beta',
-    'License :: OSI Approved :: MIT License',
-    'Natural Language :: English',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3 :: Only',
-    'Operating System :: Microsoft :: Windows',
-    'Operating System :: POSIX :: Linux',
-    'Operating System :: MacOS',
-    'Environment :: Plugins',
-    'Intended Audience :: Developers',
-    'Topic :: Software Development :: Libraries :: Python Modules',
-    'Topic :: File Formats',
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Environment :: Plugins",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: File Formats",
 ]
 
 dependencies = [
@@ -29,8 +29,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = 'https://github.com/camratchford/byoconfig'
-Source = 'https://github.com/camratchford/byoconfig'
+Homepage = "https://github.com/camratchford/byoconfig"
+Source = "https://github.com/camratchford/byoconfig"
 
 
 [project.optional-dependencies]
@@ -50,7 +50,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["byoconfig", "byoconfig.sources"]
 package-dir = {"byoconfig" = "byoconfig", "byoconfig.sources" = "byoconfig/sources"}
-
 
 
 [tool.ruff]

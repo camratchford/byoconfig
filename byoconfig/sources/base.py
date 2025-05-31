@@ -29,11 +29,11 @@ class BaseVariableSource:
               should not be exported to this set.
     """
 
-    var_source_name: str = ""
-    precedence: int = 0
-    metadata = {"var_source_name", "precedence", "metadata"}
+    _var_source_name: str = ""
+    _precedence: int = 0
+    _metadata = {"var_source_name", "precedence", "metadata"}
 
-    def data_without_metadata(self, instance) -> dict:
+    def _clean_data(self, instance) -> dict:
         """
         Returns the data from the instance without the metadata attributes in dictionary form.
         Args:
@@ -51,14 +51,14 @@ class BaseVariableSource:
         return {
             k: v
             for k, v in instance.__dict__.items()
-            if not k.startswith("_") and k not in self.metadata
+            if not k.startswith("_") and k not in self._metadata
         }
 
     def get_data(self):
         """
         Returns the data from the instance without the metadata attributes in dictionary form.
         """
-        return self.data_without_metadata(self)
+        return self._clean_data(self)
 
     def set_data(self, data: dict = None, **kwargs):
         """
@@ -117,7 +117,7 @@ class BaseVariableSource:
         keys = args if args else self.__dict__.keys()
 
         del_attrs = [
-            k for k in keys if k not in self.metadata and k in self.__dict__.keys()
+            k for k in keys if k not in self._metadata and k in self.__dict__.keys()
         ]
 
         for attr in del_attrs:
@@ -127,7 +127,9 @@ class BaseVariableSource:
         """
         Returns a string representation of the instance.
         """
-        return f"{self.__class__.__name__}: {self.var_source_name} [{self.precedence}]"
+        return (
+            f"{self.__class__.__name__}: {self._var_source_name} [{self._precedence}]"
+        )
 
     def __str__(self):
         """
@@ -139,38 +141,38 @@ class BaseVariableSource:
         """
         Returns the precedence of the instance when cast to an integer.
         """
-        return self.precedence
+        return self._precedence
 
     def __hash__(self):
         """
         Returns the hash of the instance, based on precedence value
         """
-        return hash(self.precedence)
+        return hash(self._precedence)
 
     # 'Rich Comparison' magic methods to enable sorting by precedence
     def __lt__(self, other):
         """
         Returns true if the precedence of the right-hand object is greater than the precedence of the left-hand object.
         """
-        return self.precedence < other.precedence
+        return self._precedence < other._precedence
 
     def __le__(self, other):
         """
         Returns true if the precedence of the right-hand object is greater than or equal to the precedence of the left-hand object.
         """
-        return self.precedence <= other.precedence
+        return self._precedence <= other._precedence
 
     def __gt__(self, other):
         """
         Returns true if the precedence of the right-hand object is less than the precedence of the left-hand object.
         """
-        return self.precedence > other.precedence
+        return self._precedence > other._precedence
 
     def __ge__(self, other):
         """
         Returns true if the precedence of the right-hand object is less than or equal to the precedence of the left-hand object.
         """
-        return self.precedence >= other.precedence
+        return self._precedence >= other._precedence
 
     def __eq__(self, other):
         """
@@ -189,7 +191,7 @@ class BaseVariableSource:
         Merges two instances together, with the instance with the higher precedence instance values overwriting
         the values of the lower precedence instance.
         """
-        if other.precedence is None or self.precedence is None:
+        if other._precedence is None or self._precedence is None:
             raise BYOConfigError(
                 f"Unable to merge object '{other}' with '{self}' as one or both instances have no precedence value.",
                 self,
@@ -201,7 +203,7 @@ class BaseVariableSource:
                 self,
             )
 
-        if self.var_source_name == other.var_source_name:
+        if self._var_source_name == other._var_source_name:
             raise BYOConfigError(
                 f"Unable to merge object '{other}' with '{self}' as they share the same name.",
                 self,
@@ -215,14 +217,14 @@ class BaseVariableSource:
 
         if self > other:
             data = self.get_data()
-            other_data = self.data_without_metadata(other)
+            other_data = self._clean_data(other)
             other_data.update(data)
             self.set_data(other_data)
             return copy(self)
 
         elif self < other:
-            data = self.data_without_metadata(self)
-            other_data = self.data_without_metadata(other)
+            data = self._clean_data(self)
+            other_data = self._clean_data(other)
             data.update(other_data)
             self.set_data(data)
             return copy(self)

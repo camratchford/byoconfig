@@ -15,9 +15,7 @@ def test_error_modes():
 
     with pytest.raises(BYOConfigError) as exec_info_error:
         GenericEnvSource(env_prefix="illegal prefix")
-    assert " must be a valid environment variable name" in str(
-        exec_info_error.value
-    )
+    assert " must be a valid environment variable name" in str(exec_info_error.value)
 
 
 def load_env():
