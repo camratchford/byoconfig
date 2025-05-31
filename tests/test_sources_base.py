@@ -7,8 +7,8 @@ from byoconfig.error import BYOConfigError
 def test_base_source():
     source = NameSource("test")
     assert source.data == {"name": "test", "should_appear": "should_appear"}
-    assert source.var_source_name == "NameSource"
-    assert source.precedence == 1
+    assert source._var_source_name == "NameSource"
+    assert source._precedence == 1
     assert str(source) == "NameSource: NameSource [1]"
     assert repr(source) == "NameSource: NameSource [1]"
     source_keys = [k for k in source.data.keys()]
@@ -42,14 +42,14 @@ def test_precedence_and_add():
 
     with pytest.raises(BYOConfigError) as exec_info_precedence:
         source_a += source_c
-    assert "as they have the same precedence." in str(exec_info_precedence.value)
+        assert "as they have the same precedence." in str(exec_info_precedence.value)
 
     source_c.precedence = None
     with pytest.raises(BYOConfigError) as exec_info_no_precedence:
         source_a += source_c
-    assert "as one or both instances have no precedence value." in str(
-        exec_info_no_precedence.value
-    )
+        assert "as one or both instances have no precedence value." in str(
+            exec_info_no_precedence.value
+        )
 
     # Test that private attributes are not copied over
     source_b._should_not_appear = "shouldn't be copied to other source"

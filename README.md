@@ -81,14 +81,16 @@ print(conf2.PATH)
 from byoconfig.sources import BaseVariableSource
 from byoconfig import Config
 
+
 # Subclass the BaseVariableSource class
 class MyVarSource(BaseVariableSource):
-    def __init__(self, init_options):
-        # Using an imaginary function 'get_external_data' in place of something like an http request or DB query
-        self.external_data = get_external_data(init_options)
-        
-        # Initializes the class attrs, making the data availalble via MyVarSource.var_name  
-        self.set_data(self.external_data)
+  def __init__(self, init_options):
+    # Using an imaginary function 'get_external_data' in place of something like an http request or DB query
+    self.external_data = get_external_data(init_options)
+
+    # Initializes the class attrs, making the data availalble via MyVarSource.var_name  
+    self.set_data(self.external_data)
+
 
 # Start with a config object, containing the data from any source (optional)
 my_config = Config("some/file/data.json")
@@ -104,6 +106,7 @@ my_config.include(MyVarSource, init_options="some data to initialize your custom
 
 ```python
 from byoconfig import Config
+
 # Via kwargs
 conf = Config(my_var="abc", my_var_2=123)
 
