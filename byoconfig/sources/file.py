@@ -257,7 +257,7 @@ class FileVariableSource(BaseVariableSource):
             raise e
 
     # Alias for load_yaml so the extension .yml can be used
-    load_yml = _load_yaml
+    _load_yml = _load_yaml
 
     def _dump_yaml(self, destination_file: Path):
         """
