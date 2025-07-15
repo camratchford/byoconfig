@@ -200,7 +200,7 @@ class FileVariableSource(BaseVariableSource):
         method_name = f"_{method_type}_{file_type.lower()}"
         if not hasattr(self, method_name):
             raise ValueError(
-                f"No FileVariableSource method exists for file type '.{file_type}'"
+                f"No FileVariableSource method exists for file type '.{file_type.lower()}'"
             )
         return getattr(self, method_name)
 
