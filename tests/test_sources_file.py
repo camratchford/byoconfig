@@ -68,6 +68,12 @@ def compare_file_contents(file1, file2):
 def test_dump_file_modes():
     # ensure that output_dir exists
     output_dir.mkdir(exist_ok=True)
+    yml_file = str(example_configs / "same_as.yml")
+    yml_dump = str(output_dir / "dumped.yml")
+    yml_source = GenericFileSource(yml_file)
+    yml_source.dump(yml_dump)
+    assert compare_file_contents(yml_file, yml_dump)
+
     yaml_file = str(example_configs / "same_as.yaml")
     yaml_dump = str(output_dir / "dumped.yaml")
     yaml_source = GenericFileSource(yaml_file)
