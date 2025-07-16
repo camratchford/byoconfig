@@ -1,0 +1,4 @@
+parent:
+  child:
+    other: thing
+  some: thing

@@ -31,6 +31,7 @@ class Config(FileVariableSource, EnvVariableSource):
         env_prefix: Optional[str] = None,
         var_source_name: Optional[str] = "Config",
         precedence: Optional[int] = 1,
+        loose_attrs: bool = False,
         **kwargs,
     ):
         """
@@ -59,6 +60,7 @@ class Config(FileVariableSource, EnvVariableSource):
         try:
             self._precedence = precedence
             self._var_source_name = var_source_name
+            self._loose_attrs = loose_attrs
             super().__init__(
                 source_file=source_file_path, forced_file_type=forced_file_type
             )
@@ -68,6 +70,7 @@ class Config(FileVariableSource, EnvVariableSource):
             logger.debug(
                 f"Config object {self._var_source_name} created with precedence {self._precedence}"
             )
+
 
         except BYOConfigError as e:
             raise e
@@ -113,3 +116,15 @@ class Config(FileVariableSource, EnvVariableSource):
 
         except Exception as e:
             raise e
+
+    def __getattr__(self, item):
+        """
+        Allows getting and setting of unset class attrs
+        """
+        if self._loose_attrs:
+            try:
+                return self.__getattribute__(item)
+            except AttributeError:
+                self.__setattr__(item, None)
+                return self.__getattribute__(item)
+        return self.__getattribute__(item)
