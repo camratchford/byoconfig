@@ -42,6 +42,10 @@ def test_error_modes():
 def test_load_file_modes():
     example_dict = {"parent": {"some": "thing", "child": {"other": "thing"}}}
 
+    yml_file = str(example_configs / "same_as.yml")
+    yml_source = GenericFileSource(yml_file)
+    assert yml_source.data == example_dict
+
     yaml_file = str(example_configs / "same_as.yaml")
     yaml_source = GenericFileSource(yaml_file)
     assert yaml_source.data == example_dict

@@ -32,6 +32,12 @@ dependencies = [
 Homepage = "https://github.com/camratchford/byoconfig"
 Source = "https://github.com/camratchford/byoconfig"
 
+[project.scripts]
+project-version-bump = "byoconfig.scripts.bump_version:cli"
+project-build-and-publish = "byoconfig.scripts.build_and_publish:cli"
+project-format-and-lint = "byoconfig.scripts.format_and_lint:cli"
+project-run-tests = "byoconfig.scripts.run_tests:cli"
+project-do-release = "byoconfig.scripts.do_github_release:cli"
 
 [project.optional-dependencies]
 development = [
@@ -48,8 +54,8 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["byoconfig", "byoconfig.sources"]
-package-dir = {"byoconfig" = "byoconfig", "byoconfig.sources" = "byoconfig/sources"}
+packages = ["byoconfig", "byoconfig.sources", "byoconfig.scripts"]
+package-dir = {"byoconfig" = "byoconfig", "byoconfig.sources" = "byoconfig/sources", "byoconfig.scripts" = "extras/scripts"}
 
 
 [tool.ruff]
