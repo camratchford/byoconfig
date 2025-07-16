@@ -2,6 +2,8 @@ from os import environ
 from fixtures.pathing import example_configs
 from fixtures.fixture_source_classes import PluginVarSource
 
+import pytest
+
 from byoconfig.config import Config
 
 
@@ -31,6 +33,21 @@ def test_env_var_source_functionality():
 
     env_source = Config(env_prefix=env_prefix)
     assert env_source.data.get("ENV_VAR") == environ.get(env_var)
+
+
+def test_setattr_functionality():
+    config_loose = Config(loose_attrs=True)
+    a_nonexistent_attribute_var = config_loose.a_nonexistent_attribute
+    assert a_nonexistent_attribute_var is None
+    config_loose.another_nonexistent_attribute = 42
+    assert config_loose.another_nonexistent_attribute == 42
+
+    config_strict = Config()
+    with pytest.raises(AttributeError):
+        assert config_strict.a_nonexistent_attribute_var is None
+        config_strict.another_nonexistent_attribute = 42
+        assert config_strict.another_nonexistent_attribute == 42
+
 
 
 def test_loading_plugins_and_kwargs():
