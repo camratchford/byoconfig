@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     "PyYAML",
     "toml",
+    "boto3"
 ]
 
 [project.urls]
