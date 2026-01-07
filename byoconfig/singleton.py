@@ -1,27 +1,31 @@
-from byoconfig.config import Config
+import threading
+from typing import Dict, Type, Any, TypeVar
+from functools import wraps
+
+_instances: Dict[Type, Any] = {}
+_lock = threading.Lock()
+
+T = TypeVar('T')
 
 
-class SingletonConfig(Config):
+def singleton_class(cls: Type[T]) -> Type[T]:
     """
-    Singleton class of the byoconfig.Config object:
-        Once initialized, any subsequent calls to this class's __init__ method will return
-        the original SingletonConfig object from the first time it was called.
-
-    Useful for:
-        An application with a single config context, allowing you to import and initialize
-        a single instance across any scope while having access to a single instance of the
-        Config class (and all the data within).
-
-    Not useful for:
-        Multiple config contexts that require separate instances of Config objects.
-        If that is your goal, you should use Config or implement your own singleton class from
-        the Config class, re-using this class's __new__ method, as subclassing this class
-        will automatically overwrite the original singleton's __new__ method.
+    Create a thread-safe singleton from a regular class.
     """
 
-    _instance = None
+    original_new = cls.__new__
 
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(SingletonConfig, cls).__new__(cls, *args, **kwargs)
-        return cls._instance
+    @wraps(original_new)
+    def singleton_new(klass, *args, **kwargs):
+        if cls not in _instances:
+            with _lock:
+                if cls not in _instances:
+                    if original_new is object.__new__:
+                        instance = object.__new__(klass)
+                    else:
+                        instance = original_new(klass, *args, **kwargs)
+                    _instances[cls] = instance
+        return _instances[cls]
+
+    cls.__new__ = staticmethod(singleton_new)
+    return cls
