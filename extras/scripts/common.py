@@ -12,7 +12,17 @@ package_name = "byoconfig"
 
 
 def run(cmd):
-    print(f"Running: {cmd}")
+    """
+    Runs shell commands in the project's root directory
+
+    Args:
+        cmd (str):
+            The shell command that will be run
+
+    Returns:
+        subprocess.CompletedProcess
+    """
+    print(f"::info:: Running: {cmd}")
     return subprocess.run(
         cmd,
         shell=True,
@@ -25,6 +35,11 @@ def run(cmd):
 
 
 def package_installed_as_editable(package: str = package_name) -> bool:
+    """
+    Determines if the current project's Python package was installed with the editable option `pip -e`
+    The relative path of the project root, and therefore the path to the tests directory depend on the package being
+    installed this way.
+    """
     for path in site.getsitepackages() + [site.getusersitepackages()]:
         if not Path(path).exists():
             continue
@@ -37,36 +52,8 @@ def package_installed_as_editable(package: str = package_name) -> bool:
     return False
 
 
-class ScriptEnvironmentError(Exception):
-    def __init__(self, package, name):
-        message = (
-            f"PyPi package '{package}' is not installed with '-e' option.\n"
-            f"This is required to give relative paths to {name}."
-            ""
-        )
-        print(message)
-        super().__init__(message)
-        exit(1)
-
-
-class ScripCLIError(Exception):
-    def __init__(self, process: subprocess.CompletedProcess):
-        error_message = "\n".join((process.stdout, process.stderr))
-        message = (
-            f"CLI command {process.args} completed with error code {process.returncode}\n"
-            f"::error:: {error_message}"
-        )
-        print(message)
-        super().__init__(message)
-        exit(1)
-
-
-def check_subprocess_for_errors(process: subprocess.CompletedProcess):
-    if process.returncode != 0:
-        raise ScripCLIError(process)
-
-
 def get_current_branch():
+    # This subprocess.run command is distinct from that used in scripts.common.run as this command captures output.
     return subprocess.run(
         "git rev-parse --abbrev-ref HEAD",
         text=True,
@@ -89,5 +76,6 @@ def get_current_version() -> Version:
     content = pyproject_dot_toml.read_text()
     match = re.search(r'^version\s*=\s*["\'](.+?)["\']', content, re.MULTILINE)
     if not match:
-        exit("Version not found in pyproject.toml")
+        print("::error:: Version not found in pyproject.toml")
+        exit(1)
     return Version(match.group(1))

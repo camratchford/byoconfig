@@ -24,7 +24,8 @@ def get_new_version(version: Version, kind: str) -> str:
     elif kind == "dev":
         return f"{version.major}.{version.minor}.{version.micro + 1}.dev0"
     else:
-        sys.exit(f"Invalid bump type: {kind}")
+        print(f"::error:: Invalid bump type: {kind}")
+        sys.exit(1)
 
 
 def set_new_version(new_version: str):

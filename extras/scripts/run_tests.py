@@ -10,7 +10,9 @@ def cli():
     if not package_installed_as_editable():
         raise ScriptEnvironmentError(package_name, __name__)
 
-    run("pytest ./tests")
+    process = run("pytest ./tests")
+    if process.returncode == 0:
+        print("::info:: Tests passed")
 
 
 if __name__ == "__main__":
