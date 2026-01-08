@@ -4,27 +4,30 @@ from packaging.version import Version
 import argparse
 
 
-from byoconfig.scripts.common import (
+from .common import (
     run,
     get_current_version,
     pyproject_dot_toml,
-    package_name,
-    package_installed_as_editable,
-    ScriptEnvironmentError,
+    check_package_installed_as_editable,
 )
 
 
-def get_new_version(version: Version, kind: str) -> str:
-    if kind == "patch":
+def get_new_version(version: Version, magnitude: str) -> str:
+    if magnitude == "dev":
+        dev_ver = version.dev + 1 if version.dev else 0
+        return f"{version.major}.{version.minor}.{version.micro}.dev{dev_ver}"
+
+    elif magnitude == "patch":
         return f"{version.major}.{version.minor}.{version.micro + 1}"
-    elif kind == "minor":
+
+    elif magnitude == "minor":
         return f"{version.major}.{version.minor + 1}.0"
-    elif kind == "major":
+
+    elif magnitude == "major":
         return f"{version.major + 1}.0.0"
-    elif kind == "dev":
-        return f"{version.major}.{version.minor}.{version.micro + 1}.dev0"
+
     else:
-        print(f"::error:: Invalid bump type: {kind}")
+        print(f"::error:: Invalid version bump magnitude: {magnitude}")
         sys.exit(1)
 
 
@@ -48,26 +51,30 @@ def git_tag(version: str):
 
 
 def main(
+    dev_release: bool,
     patch_release: bool,
     minor_release: bool,
     major_release: bool,
     manual_version: bool,
     dry_run: bool = False,
 ) -> None:
-    kind = (
-        "patch"
-        if patch_release
-        else "minor"
-        if minor_release
-        else "major"
-        if major_release
-        else "dev"
+    version_bump_magnitude = (
+        "dev" if dev_release
+        else "patch" if patch_release
+        else "minor" if minor_release
+        else "major" if major_release
+        else None
     )
 
     current_version = get_current_version()
+
+    if version_bump_magnitude is None:
+        print(current_version)
+        exit(0)
+
     new_version = current_version
     if not manual_version:
-        new_version = get_new_version(current_version, kind)
+        new_version = get_new_version(current_version, version_bump_magnitude)
 
     print(f"Bumping version: {current_version} → {new_version}")
     if not dry_run:
@@ -79,18 +86,16 @@ def cli():
     parser = argparse.ArgumentParser(description="Bump version and create release.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
-        "--patch", action="store_true", help="Bump patch version (x.y.z → x.y.z+1)"
+        "--dev", action="store_true", help="Bump dev version: Maj.Min.Pat.devDev → Maj.Min.Pat.dev{Dev+1}"
     )
     group.add_argument(
-        "--minor", action="store_true", help="Bump minor version (x.y.z → x.y+1.0)"
+        "--patch", action="store_true", help="Bump patch version: Maj.Min.Pat → Maj.Min.{Pat+1}"
     )
     group.add_argument(
-        "--major", action="store_true", help="Bump major version (x.y.z → x+1.0.0)"
+        "--minor", action="store_true", help="Bump minor version: Maj.Min.Pat → Maj.{Min+1}.0"
     )
     group.add_argument(
-        "--dev",
-        action="store_true",
-        help="Bump to next patch with dev suffix (x.y.z → x.y.z+1.dev0)",
+        "--major", action="store_true", help="Bump major version: Maj.Min.Pat → {Maj+1}.0.0"
     )
     group.add_argument(
         "--manual-version",
@@ -105,10 +110,10 @@ def cli():
 
     args = parser.parse_args()
 
-    if not package_installed_as_editable():
-        raise ScriptEnvironmentError(package_name, __name__)
+    check_package_installed_as_editable()
 
     main(
+        dev_release=args.dev,
         patch_release=args.patch,
         minor_release=args.minor,
         major_release=args.major,

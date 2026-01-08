@@ -1,16 +1,13 @@
-from byoconfig.scripts.common import (
+from .common import (
     run,
-    package_installed_as_editable,
-    ScriptEnvironmentError,
-    package_name,
+    check_package_installed_as_editable,
 )
 
 
 def cli():
-    if not package_installed_as_editable():
-        raise ScriptEnvironmentError(package_name, __name__)
-
+    check_package_installed_as_editable()
     process = run("pytest ./tests")
+
     if process.returncode == 0:
         print("::info:: Tests passed")
 

@@ -28,13 +28,12 @@ def run(cmd):
         shell=True,
         text=True,
         cwd=project_root,
-        stderr=subprocess.STDOUT,
-        stdout=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
 
 
-def package_installed_as_editable(package: str = package_name) -> bool:
+def check_package_installed_as_editable(package: str = package_name):
     """
     Determines if the current project's Python package was installed with the editable option `pip -e`
     The relative path of the project root, and therefore the path to the tests directory depend on the package being
@@ -48,19 +47,20 @@ def package_installed_as_editable(package: str = package_name) -> bool:
         ]
         for pkg in editable_pkgs:
             if package in pkg:
-                return True
-    return False
+                return
+
+    print(
+        "::error:: "
+        "Ensure the current project's Python package was installed with the editable option `pip -e`. "
+        "The relative path of the project root, and therefore the path to the tests directory depend on the package being "
+        "installed this way."
+    )
+    exit(1)
 
 
 def get_current_branch():
     # This subprocess.run command is distinct from that used in scripts.common.run as this command captures output.
-    return subprocess.run(
-        "git rev-parse --abbrev-ref HEAD",
-        text=True,
-        cwd=project_root,
-        capture_output=True,
-        check=False,
-    ).stdout.strip()
+    return run("git rev-parse --abbrev-ref HEAD").stdout.strip()
 
 
 def check_branch(target_branch: str = "main"):

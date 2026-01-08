@@ -6,12 +6,10 @@ import build
 import twine.commands.upload
 from twine.settings import Settings
 
-from byoconfig.scripts.common import (
+from .common import (
     project_root,
-    package_installed_as_editable,
-    ScriptEnvironmentError,
+    check_package_installed_as_editable,
     check_branch,
-    package_name,
 )
 
 default_dist_path = project_root / "dist"
@@ -53,17 +51,17 @@ def main(dist_dir: Path, publish_to_pypi: bool):
 def cli():
     parser = ArgumentParser()
     parser.add_argument(
-        "--sdist-dir",
+        "--dist-dir",
         type=Path,
         default=default_dist_path,
-        help="Where to put the sdist files",
+        help="Where to put the dist files",
     )
     parser.add_argument(
         "--publish", action="store_true", help="Publish to PyPi after build"
     )
     args = parser.parse_args()
-    if not package_installed_as_editable():
-        raise ScriptEnvironmentError(package_name, __name__)
+
+    check_package_installed_as_editable()
     main(args.sdist_dir, publish_to_pypi=args.publish)
 
 
