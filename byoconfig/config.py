@@ -1,11 +1,10 @@
 import logging
-import inspect
-from typing import Optional, Type
+from typing import Type
+from inspect import ismethod
 
 from byoconfig.sources import (
     BaseVariableSource,
     FileVariableSource,
-    FileTypes,
     EnvVariableSource,
     SecretsManagerVariableSource,
 )
@@ -18,43 +17,58 @@ logger = logging.getLogger(__name__)
 
 
 class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource):
+    """
+    Load order: (Subsequent entries overwrite the previous)
+    1. File
+    2. Environment Variables
+    3. AWS Secrets Manager
+    4. The `config_data` parameter
+    5. The `kwargs` parameter
+    """
 
     def __init__(self, **kwargs):
-        self._metadata = self._metadata.union({name for name in self.__dir__()})
+        self._metadata = self._metadata.union(
+            {name for name in self.__dir__() if ismethod(getattr(self, name))}
+        )
 
-        self._var_source_name = kwargs.pop("config_name", None)
+        self.name = kwargs.pop("config_name", self.__class__.__name__)
         self._assign_attrs = kwargs.pop("config_assign_attrs", False)
-        super().__init__(**kwargs)
-        try:
-            self.update(kwargs)
+        self.update(**kwargs.pop("config_data", {}))
+        if kwargs:
+            load_from_file_kwargs = {
+                k: kwargs.pop(f"file_{k}")
+                for k, v in self._get_by_prefix(kwargs, "file", True).items()
+            }
+            self.load_from_file(**load_from_file_kwargs)
+        if kwargs:
+            load_from_env_kwargs = {
+                k: kwargs.pop(f"env_{k}")
+                for k, v in self._get_by_prefix(kwargs, "env", True).items()
+            }
 
-        except BYOConfigError as e:
-            raise e
+            self.load_from_environment(**load_from_env_kwargs)
+        if kwargs:
+            load_from_secrets_manager_kwargs = {
+                k: kwargs.pop(k)
+                for k, v in self._get_by_prefix(kwargs, "aws", False).items()
+            }
+            self.load_from_secrets_manager(**load_from_secrets_manager_kwargs)
 
-        except FileNotFoundError as e:
-            raise BYOConfigError(e.args, self)
-
-        except ValueError as e:
-            raise BYOConfigError(e.args, self)
-
-        except Exception as e:
-            raise BYOConfigError(f"An unhandled exception occurred during Config init: {e.args}", self)
+        if kwargs:
+            init_kwarg_prefixes = {"config", "file", "env", "aws"}
+            update_kwargs = {
+                k: v
+                for k, v in kwargs.items()
+                if not any(k.startswith(prefix) for prefix in init_kwarg_prefixes)
+            }
+            self.update(**update_kwargs)
 
     def include(self, plugin_class: Type[BaseVariableSource], **kwargs):
         try:
-            # get signature of plugin class
-            sig = inspect.signature(plugin_class)
-            # Compare kwargs to signature
-            for k, v in kwargs.items():
-                if k not in sig.parameters:
-                    raise BYOConfigError(
-                        f"Invalid parameter '{k}' for plugin class '{plugin_class.__name__}'",
-                        self,
-                    )
             plugin = plugin_class(**kwargs)  # type: ignore
-            self.set(plugin.get())
+            self.update(**plugin.as_dict())
             logger.debug(
-                f"Initialized plugin '{plugin_class.__name__}' with data: {plugin.get()}"
+                f"Initialized plugin '{plugin_class.__name__}' with data: {plugin.as_dict()}"
             )
 
         except BYOConfigError as e:

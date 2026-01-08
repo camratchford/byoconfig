@@ -9,10 +9,10 @@ class BYOConfigError(ValueError):
     """
 
     def __init__(self, msg, instance):
-        errmsg = f"{msg} in VariableSource instance '{instance._var_source_name}'"
+        errmsg = f"{msg}"
         super().__init__(self, errmsg)
         self.msg = msg
-        self.instance = instance._var_source_name
+        self.instance = instance.name
 
     def __reduce__(self):
         return self.__class__, (self.msg, self.instance)

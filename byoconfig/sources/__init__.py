@@ -8,5 +8,5 @@ __all__ = [
     "EnvVariableSource",
     "FileVariableSource",
     "FileTypes",
-    "SecretsManagerVariableSource"
+    "SecretsManagerVariableSource",
 ]

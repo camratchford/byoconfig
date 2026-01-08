@@ -3,7 +3,6 @@ import sys
 from packaging.version import Version
 import argparse
 
-from github import Github
 
 from byoconfig.scripts.common import (
     run,

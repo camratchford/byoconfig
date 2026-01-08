@@ -5,7 +5,7 @@ from byo_config import Config
 
 
 def print_config(config):
-    print(f"{config} = {config.get_data()}\n")
+    print(f"{config} = {config.get()}\n")
 
 
 def main():

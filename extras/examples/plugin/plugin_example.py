@@ -76,4 +76,4 @@ if __name__ == "__main__":
         variable_name=variable_name,
     )
 
-    print(config.get_data())
+    print(config.get())

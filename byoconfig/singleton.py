@@ -1,31 +1,27 @@
 import threading
-from typing import Dict, Type, Any, TypeVar
-from functools import wraps
+from typing import Callable, Any
 
-_instances: Dict[Type, Any] = {}
-_lock = threading.Lock()
+from byoconfig.config import Config
 
-T = TypeVar('T')
+_singleton_lock = threading.Lock()
 
 
-def singleton_class(cls: Type[T]) -> Type[T]:
-    """
-    Create a thread-safe singleton from a regular class.
-    """
+def singleton__new__method() -> Callable[..., Any]:
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            with _singleton_lock:
+                # Double-check pattern
+                if cls._instance is None:
+                    cls._instance = object.__new__(cls)
+        return cls._instance
 
-    original_new = cls.__new__
+    return __new__
 
-    @wraps(original_new)
-    def singleton_new(klass, *args, **kwargs):
-        if cls not in _instances:
-            with _lock:
-                if cls not in _instances:
-                    if original_new is object.__new__:
-                        instance = object.__new__(klass)
-                    else:
-                        instance = original_new(klass, *args, **kwargs)
-                    _instances[cls] = instance
-        return _instances[cls]
 
-    cls.__new__ = staticmethod(singleton_new)
-    return cls
+class SingletonConfig(Config):
+    _instance = None
+
+    def __init_subclass__(cls, **kwargs):
+        cls._instance = None
+        cls.__new__ = singleton__new__method()
+        super().__init_subclass__(**kwargs)

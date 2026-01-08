@@ -3,7 +3,7 @@ from byo_config import Config
 
 
 def print_config(config):
-    print(f"{config} = {config.get_data()}\n")
+    print(f"{config} = {config.get()}\n")
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
     print_config(toml_config)
     print_config(yaml_config)
 
-    if json_config.get_data() == toml_config.get_data() == yaml_config.get_data():
+    if json_config.get() == toml_config.get() == yaml_config.get():
         print("All configs are the same")
 
 

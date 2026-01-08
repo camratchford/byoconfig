@@ -6,16 +6,18 @@ from sources.file import FileVariableSource, FileTypes
 from sources.environment import EnvVariableSource
 from sources.aws_secrets_manager import SecretsManagerVariableSource
 
-
 class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource):
     """
-    A versatile config object that can load data from multiple source types and load dictionary keys as class attributes.
+    A versatile config object that can load data from multiple source types, optionally storing them as instance attributes.
     """
     def __init__(
         self,
+        config_data: Optional[dict[str, Any]] = None,
         config_name: Optional[str] = "Config",
         config_assign_attrs: Optional[bool] = False,
+        env_selected_keys: list[str] = None,
         env_prefix: Optional[str] = None,
+        env_trim_prefix: bool = True,
         file_path: Optional[str] = None,
         file_forced_type: Optional[FileTypes] = None,
         aws_secret_name: Optional[str] = "",
@@ -28,9 +30,21 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         """
         Initialize a Config object from sources containing configuration data in key/value pairs.
 
+        Load order: (Load methods defining keys previously defined by other load methods will overwrite the existing data.)
+            1. Files via the `file_path` parameter
+            2. Environment Variables via the `env_prefix` or `env_selected_keys` parameters
+            3. AWS Secrets Manager secrets via the `aws_secret_name` parameter
+            4. Data contained in the `config_data` parameter
+            5. Data provided via any extra `kwargs` you provide
+
+        To load keys in a specific order, invoke the desired '.load_' methods after initializing your config instance.
+
         Args:
+            config_data (dict[str, Any]):
+                key/value pairs to store as additional configuration data.
+
             config_name (str):
-                Name your Config instance. Useful for debugging.
+                The name of your Config instance. Useful for debugging / logging.
 
             config_assign_attrs (bool):
                 If True, instance attributes will be created for top-level configuration data keys.
@@ -80,6 +94,9 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
             aws_region (str):
                 The AWS region to use, e.g. `us-west-1`, `us-west-2`, etc.
 
+            **kwargs:
+                key:str / value:any pairs to store as additional configuration data.
+
         """
         ...
 
@@ -89,22 +106,22 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
 
         Args:
             plugin_class (Type[BaseVariableSource]):
-                The plugin class to include in the config object.  Plugin class must inherit BaseVariableSource.
+                The plugin class to include in the config object. Plugin class must inherit BaseVariableSource.
 
             **kwargs:
-                Arbitrary keyword arguments to pass to the plugin class's __init__ method.
+                Keyword arguments to pass to the plugin class's __init__ method.
         """
         ...
 
-    def load_from_file(self, file_path: str, forced_type: FileTypes = None):
+    def load_from_file(self, path: str = None, forced_type: FileTypes = None):
         """
         Loads configuration data from the source file, overwriting keys that exist in both with the data from source_file.
 
         Args:
-            file_path (str):
+            path (str):
                 The path to the source file. Format is implied by the file's suffix/extension.
                 Options are: 'YAML (.yml, .yaml), TOML (.toml), JSON (.json)'
-                
+
             forced_type (FileTypes: ['YAML', 'JSON', 'TOML'] ):
                 The file type of the source file, if you can't (or don't want to) use the file's extension.
         """
@@ -125,9 +142,10 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         ...
 
     def load_from_environment(
-            self, selected_keys: list[str] = None,
-            prefix: Optional[str] = None,
-            trim_prefix: bool = True
+        self,
+        selected_keys: list[str] = None,
+        prefix: Optional[str] = None,
+        trim_prefix: bool = True,
     ):
         """
         Loads environment variables as configuration data.
@@ -146,10 +164,10 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         ...
 
     def dump_to_environment(
-            self,
-            selected_keys: list[str] = None,
-            use_uppercase: bool = True,
-            with_prefix: str = None
+        self,
+        selected_keys: list[str] = None,
+        use_uppercase: bool = True,
+        with_prefix: str = None,
     ):
         """
         Dumps configuration data as environment variables.
@@ -168,14 +186,14 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         """
         ...
 
-    def load_secrets_manager_secret(
-            self,
-            aws_secret_name: Optional[str] = None,
-            aws_access_key_id: Optional[str] = None,
-            aws_secret_access_key: Optional[str] = None,
-            aws_session_token: Optional[str] = None,
-            aws_region: Optional[str] = None,
-            **kwargs
+    def load_from_secrets_manager(
+        self,
+        aws_secret_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        aws_session_token: Optional[str] = None,
+        aws_region: Optional[str] = None,
+        **kwargs,
     ):
         """
         Loads JSON encoded secrets from AWS Secrets Manager.
@@ -273,5 +291,34 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         args:
             *args (list[hashable]):
                 A list of keys to clear from the instance. If None, all keys will be cleared.
+        """
+        ...
+
+    def keys(self) -> list[str]:
+        """
+        Return a list of all configuration data keys
+        """
+        ...
+
+    def values(self) -> list[Any]:
+        """
+        Return a list of all configuration data values
+        """
+        ...
+
+    def items(self) -> list[tuple[str, Any]]:
+        """
+        Return a list of all configuration data as (key, value) tuples
+        """
+        ...
+
+    def as_dict(self, copy: bool = True) -> dict[str, Any]:
+        """
+        Return the configuration data as a dict
+
+        Args:
+            copy (bool):
+                If true (default), return a copy of the configuration data dict
+                If false, return the actual configuration data dict.
         """
         ...
