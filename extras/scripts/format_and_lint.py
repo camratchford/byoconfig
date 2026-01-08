@@ -1,12 +1,9 @@
 from argparse import ArgumentParser
+from subprocess import CompletedProcess
 
-from byoconfig.scripts.common import (
-    project_root,
+from .common import (
     run,
-    package_installed_as_editable,
-    ScriptEnvironmentError,
-    check_subprocess_for_errors,
-    package_name,
+    check_package_installed_as_editable,
 )
 
 
@@ -17,12 +14,14 @@ def main(directories: list[str], test_mode: bool):
         check_test_arg = "--exit-non-zero-on-fix"
         format_test_arg = "--check --exit-non-zero-on-fix"
 
-    check_process = run(f"ruff check --show-fixes --fix {check_test_arg} {dir_arg}")
-    format_process = run(f"ruff format {format_test_arg} {dir_arg}")
+    check_process: CompletedProcess = run(f"ruff check --show-fixes --fix {check_test_arg} {dir_arg}")
+    format_process: CompletedProcess = run(f"ruff format {format_test_arg} {dir_arg}")
 
-    if test_mode:
-        check_subprocess_for_errors(check_process)
-        check_subprocess_for_errors(format_process)
+    if test_mode and (check_process.returncode != 0 or format_process.returncode !=0):
+        check_errors = check_process.stderr | check_process.stdout
+        format_errors = format_process.stderr | format_process.stdout
+
+        print(f"Formater / Linter errors: Check='{check_errors}' Format='{format_errors}'")
 
 
 def cli():
@@ -39,18 +38,8 @@ def cli():
         default=["."],
     )
     args = parser.parse_args()
-    dir_paths = [project_root / directory for directory in args.directories]
-    missing_paths = [d for d in dir_paths if not d.exists()]
-    if missing_paths:
-        paths_str = " ".join(str(i) for i in missing_paths)
-        raise ScriptEnvironmentError(
-            f"Some directories are not accessible: {paths_str}. "
-            f"Did forget to install this pacakge with 'pip install -e'?"
-        )
 
-    if not package_installed_as_editable():
-        raise ScriptEnvironmentError(package_name, __name__)
-
+    check_package_installed_as_editable()
     main(directories=args.directories, test_mode=args.test)
 
 

@@ -1,230 +1,212 @@
 import logging
-
-from copy import copy
-from typing import Type
+import re
+from re import compile
+from typing import Any
 
 from byoconfig.error import BYOConfigError
-from collections.abc import Hashable
 
 logger = logging.getLogger(__name__)
+
+# Generate the list of ASCII characters that are invalid for use in a Python identifier string
+invalid_character_list = [
+    i for i in filter(lambda x: not str.isidentifier(x), (chr(i) for i in range(0, 96)))
+]
+
+# For use with str.translate: Converts characters not valid inside a Python identifier to an underscore.
+translate_map = {ord(invalid_char): ord("_") for invalid_char in invalid_character_list}
+
+
+def convert_to_valid_identifier(invalid_str: str):
+    """
+    Converts a string that has characters that would throw errors if it were used as a class attribute identifier.
+    Invalid characters are converted to underscores. Sequences of 2 or more underscores are collapsed into a single '_'.
+      One bonus side effect of this is that it will prevent the output from matching any magic identifiers such as
+      '__init__' or '__sub__'
+    """
+    valid_str = invalid_str.translate(translate_map)
+
+    max_underscores = len(valid_str)
+    dedup_underscore_pattern = compile("_{2," + str(max_underscores) + "}")
+    deduped_underscore_str = dedup_underscore_pattern.sub("_", valid_str)
+    removed_leading_underscore = deduped_underscore_str.lstrip("_")
+
+    return removed_leading_underscore
 
 
 class BaseVariableSource:
     """
     The base for other variable source object.
-      - Provides methods to load, retrieve, and merge data from different sources.
-      - Provides comparison methods to sort instances by precedence.
+      - Provides methods to load and retrieve data from different sources.
+      - Borrows from collections.UserDict
 
     Attrs:
-        var_source_name (str):
+        name (str):
             The name of the variable source. Must be unique for each instance.
 
-        precedence (int):
-            The precedence of the variable source.
-            Higher precedence objects overwrite lower precedence objects when merged.
+        _assign_attrs: (bool):
+            If true, the contents of self.data will be assigned to instance attributes.
+            Ex. If 'var_source.data' is '{"verbose": True}', then the BaseVariableSource instance will have an attribute
+            'verbose' (var_source.verbose) with a value of True .
 
-        metadata:
-            Attributes to be ignored when exporting data from the instance.
+        _metadata:
+            Attributes that:
+              - Are not listed in data when `.get()` is executed.
+              - Are not permitted as configuration data when `.set()` is executed.
             When creating a subclass of BaseVariableSource, add any attributes that
-              should not be exported to this set.
+              should not be imported or exported to this set.
     """
 
-    _var_source_name: str = ""
-    _precedence: int = 0
-    _metadata = {"var_source_name", "precedence", "metadata"}
+    name: str = ""
+    _assign_attrs: bool = False
+    _metadata: set[str] = {"name", "_metadata", "_assign_attrs", "_data"}
+    _data: dict[str, Any] = {}
 
-    def _clean_data(self, instance) -> dict:
-        """
-        Returns the data from the instance without the metadata attributes in dictionary form.
-        Args:
-            instance (object):
-                The instance to extract data from
-        """
+    def _is_valid_key_name(self, key: str):
+        return not key.startswith("_") and key not in self._metadata
 
-        # noinspection PyTypeChecker
-        if not isinstance(instance, BaseVariableSource):
-            raise AttributeError(
-                f"Unable to parse data from object {instance} as it "
-                f"is not an instance or subclass instance of {self}"
-            )
-
+    def _sanitized_data(self) -> dict:
         return {
             k: v
-            for k, v in instance.__dict__.items()
-            if not k.startswith("_") and k not in self._metadata
+            for k, v in filter(
+                lambda key_val: self._is_valid_key_name(key_val[0]), self._data.items()
+            )
         }
 
-    def get_data(self):
-        """
-        Returns the data from the instance without the metadata attributes in dictionary form.
-        """
-        return self._clean_data(self)
-
-    def set_data(self, data: dict = None, **kwargs):
-        """
-        Updates the object's attributes with the data from the source.
-        Attributes do not need to be declared in the class definition.
-
-        args:
-            data (dict):
-                The key:value pairs to be loaded as class atttributes
-            **kwargs:
-                Arbitrary keyword arguments, to be loaded as class attributes.
-        """
-
-        values = data or kwargs or None
-
-        if values is None:
-            return
-
-        for attr, val in values.items():
-            setattr(self, attr, val)
-
-    @property
-    def data(self):
-        """
-        Alias for get_data()
-        Returns the data from the instance without the metadata attributes in dictionary form.
-        """
-        return self.get_data()
-
-    @data.setter
-    def data(self, data: dict):
-        """
-        Alias for set_data()
-        Updates the object's attributes with the data from the source.
-        Attributes do not need to be declared in the class definition.
-
-        args:
-            data (dict):
-                The key:value pairs to be loaded as class atttributes
-        """
-        self.set_data(data)
-
-    def clear_data(self, *args):
-        """
-        Clears the data from the instance.
-        args:
-            *args (list[hashable]):
-                A list of keys to clear from the instance. If None, all keys will be cleared.
-        """
-        if args and not all([isinstance(a, Hashable) for a in args]):
-            raise BYOConfigError(
-                f"Unable to clear data from object {self} as one or more of the keys are not hashable types.",
-                self,
+    def _sanitized_attrs(self):
+        return {
+            k: v
+            for k, v in filter(
+                lambda key_val: self._is_valid_key_name(key_val[0]),
+                self.__dict__.items(),
             )
+        }
 
-        keys = args if args else self.__dict__.keys()
+    def get(self, key: str, default: Any = None):
+        if key in self._sanitized_data():
+            return self._data[key]
 
-        del_attrs = [
-            k for k in keys if k not in self._metadata and k in self.__dict__.keys()
+        return default
+
+    @staticmethod
+    def _get_keys_by_prefix(
+        data: dict[str, Any], prefix: str, trim_prefix: bool = True
+    ) -> list[str]:
+        trim_pattern = re.compile(f"({prefix}_?)")
+
+        return [
+            trim_pattern.sub("", k) if trim_prefix else k
+            for k in data.keys()
+            if k.startswith(prefix)
         ]
 
-        for attr in del_attrs:
+    @staticmethod
+    def _get_by_prefix(
+        data: dict[str, Any], prefix: str, trim_prefix: bool = True
+    ) -> dict[str, Any]:
+        trim_pattern = re.compile(f"({prefix}_?)")
+
+        return {
+            trim_pattern.sub("", k) if trim_prefix else k: v
+            for k, v in data.items()
+            if k.startswith(prefix)
+        }
+
+    def get_by_prefix(self, prefix: str, trim_prefix: bool = True) -> dict[str, Any]:
+        return self._get_by_prefix(self._sanitized_data(), prefix, trim_prefix)
+
+    def set(self, key: str, value: Any):
+        if not self._is_valid_key_name(key):
+            message = (
+                "Run `print(Config._metadata)` for a full list of reserved key names."
+            )
+            if key.startswith("_"):
+                message = "Key names must not start with underscore '_'. "
+            raise BYOConfigError(
+                f"Invalid configuration data key name '{str(key)}'. Key is reserved for BYOConfig internals: {message}",
+                self,
+            )
+
+        self._data[key] = value
+
+        if not self._assign_attrs:
+            return
+
+        self.__setattr__(key, value)
+
+    def update(self, data: dict[str, Any] = None, /, **kwargs):
+        values = {}
+        if data is not None:
+            values = data
+        if kwargs:
+            values = kwargs
+
+        if not values:
+            return
+
+        for k, v in values.items():
+            self.set(k, v)
+
+    def delete_item(self, key: str):
+        del self._data[key]
+
+        if not self._assign_attrs:
+            return
+
+        delattr(self, key)
+
+    def clear_data(self, *keys: str):
+        keys = keys if keys else self._data.copy().keys()
+
+        for key in keys:
+            if key not in self._data:
+                continue
+            del self._data[key]
+
+        if not self._assign_attrs:
+            return
+
+        for attr in keys:
+            if not self._is_valid_key_name(attr) or not hasattr(self, attr):
+                continue
             delattr(self, attr)
 
-    def __repr__(self):
+    def keys(self):
+        return [i for i in self._sanitized_data().keys()]
+
+    def values(self):
+        return [i for i in self._sanitized_data().values()]
+
+    def items(self):
+        return [i for i in self._sanitized_data().items()]
+
+    def as_dict(self, copy: bool = True):
+        return self._data.copy() if copy else self._data
+
+    def __init_subclass__(cls, **kwargs):
         """
-        Returns a string representation of the instance.
+        Ensures that subclasses can add class attributes as configuration data, expecting to access
+        it via .get("class_attr_name") or .as_dict()["class_attr_name"]
         """
-        return (
-            f"{self.__class__.__name__}: {self._var_source_name} [{self._precedence}]"
+        cls._data.update(
+            {k: v for k, v in cls.__dict__.items() if cls._is_valid_key_name(cls, k)}
         )
 
+    def __len__(self):
+        return len(self._data)
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __contains__(self, key):
+        return key in self._data
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.name}"
+
     def __str__(self):
-        """
-        Returns a string representation of the instance.
-        """
         return self.__repr__()
 
-    def __int__(self):
-        """
-        Returns the precedence of the instance when cast to an integer.
-        """
-        return self._precedence
-
-    def __hash__(self):
-        """
-        Returns the hash of the instance, based on precedence value
-        """
-        return hash(self._precedence)
-
-    # 'Rich Comparison' magic methods to enable sorting by precedence
-    def __lt__(self, other):
-        """
-        Returns true if the precedence of the right-hand object is greater than the precedence of the left-hand object.
-        """
-        return self._precedence < other._precedence
-
-    def __le__(self, other):
-        """
-        Returns true if the precedence of the right-hand object is greater than or equal to the precedence of the left-hand object.
-        """
-        return self._precedence <= other._precedence
-
-    def __gt__(self, other):
-        """
-        Returns true if the precedence of the right-hand object is less than the precedence of the left-hand object.
-        """
-        return self._precedence > other._precedence
-
-    def __ge__(self, other):
-        """
-        Returns true if the precedence of the right-hand object is less than or equal to the precedence of the left-hand object.
-        """
-        return self._precedence >= other._precedence
-
-    def __eq__(self, other):
-        """
-        Returns true if the precedence of the right-hand object is equal to the precedence of the left-hand object.
-        """
-        return hash(self) == hash(other)
-
-    def __ne__(self, other):
-        """
-        Returns true if the precedence of the right-hand object is not equal to the precedence of the left-hand object.
-        """
-        return hash(self) != hash(other)
-
-    def __add__(self, other: Type["BaseVariableSource"]):
-        """
-        Merges two instances together, with the instance with the higher precedence instance values overwriting
-        the values of the lower precedence instance.
-        """
-        if other._precedence is None or self._precedence is None:
-            raise BYOConfigError(
-                f"Unable to merge object '{other}' with '{self}' as one or both instances have no precedence value.",
-                self,
-            )
-
-        if not isinstance(other, self.__class__):
-            raise BYOConfigError(
-                f"Unable to merge object '{other}' with '{self}' as they are not instances of the same class.",
-                self,
-            )
-
-        if self._var_source_name == other._var_source_name:
-            raise BYOConfigError(
-                f"Unable to merge object '{other}' with '{self}' as they share the same name.",
-                self,
-            )
-
-        if self == other:
-            raise BYOConfigError(
-                f"Unable to merge object '{other}' with '{self}' as they have the same precedence.",
-                self,
-            )
-
-        if self > other:
-            data = self.get_data()
-            other_data = self._clean_data(other)
-            other_data.update(data)
-            self.set_data(other_data)
-            return copy(self)
-
-        elif self < other:
-            data = self._clean_data(self)
-            other_data = self._clean_data(other)
-            data.update(other_data)
-            self.set_data(data)
-            return copy(self)
+    def __setattr__(self, key, value):
+        if not key.isidentifier():
+            key = convert_to_valid_identifier(key)
+        super().__setattr__(key, value)

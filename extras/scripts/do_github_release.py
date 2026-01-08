@@ -3,15 +3,14 @@ from argparse import ArgumentParser
 
 from github import Github
 
-from byoconfig.scripts.common import (
+from .common import (
     check_branch,
-    package_installed_as_editable,
-    ScriptEnvironmentError,
+    check_package_installed_as_editable,
     get_current_version,
 )
 
 
-def create_release(version: str, github_token: str, release_notes: str):
+def create_release(version: str,  github_token: str, release_notes: str):
     github_client = Github(github_token)
     github_repo = github_client.get_repo("camratchford/byoconfig")
 
@@ -26,8 +25,7 @@ def create_release(version: str, github_token: str, release_notes: str):
 
 
 def main(release_notes: str):
-    if not package_installed_as_editable():
-        raise ScriptEnvironmentError("byoconfig", __name__)
+    check_package_installed_as_editable()
     check_branch()
 
     version = get_current_version()
@@ -47,9 +45,8 @@ def cli():
         help="Release notes for the current version",
     )
     args = parser.parse_args()
-    if not package_installed_as_editable():
-        raise ScriptEnvironmentError("byoconfig", __name__)
 
+    check_package_installed_as_editable()
     main(args.release_notes)
 
 

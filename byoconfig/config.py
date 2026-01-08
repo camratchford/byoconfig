@@ -1,114 +1,74 @@
 import logging
-import inspect
-from typing import Optional, Type
+from typing import Type
+from inspect import ismethod
 
 from byoconfig.sources import (
     BaseVariableSource,
     FileVariableSource,
     EnvVariableSource,
-    FileTypes,
+    SecretsManagerVariableSource,
 )
 from byoconfig.error import BYOConfigError
 
 __all__ = ["Config"]
 
+
 logger = logging.getLogger(__name__)
 
 
-class Config(FileVariableSource, EnvVariableSource):
+class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource):
     """
-    A versatile config object that can parse many file types, load environment variables,
-    and load dictionary keys as class attributes.
-      - Multiple config objects from different unique sources can be collated easily with a precedence value.
-      - Config instances with higher precedence have their values overwrite the values of lower precedence
-        instances when merging objects.
+    Load order: (Subsequent entries overwrite the previous)
+    1. File
+    2. Environment Variables
+    3. AWS Secrets Manager
+    4. The `config_data` parameter
+    5. The `kwargs` parameter
     """
 
-    def __init__(
-        self,
-        source_file_path: Optional[str] = None,
-        forced_file_type: Optional[FileTypes] = None,
-        env_prefix: Optional[str] = None,
-        var_source_name: Optional[str] = "Config",
-        precedence: Optional[int] = 1,
-        loose_attrs: bool = False,
-        **kwargs,
-    ):
-        """
-        Initialize a Config object.
+    def __init__(self, **kwargs):
+        self._metadata = self._metadata.union(
+            {name for name in self.__dir__() if ismethod(getattr(self, name))}
+        )
 
-        Args:
-            source_file_path (str):
-                The path to the source file.
+        self.name = kwargs.pop("config_name", self.__class__.__name__)
+        self._assign_attrs = kwargs.pop("config_assign_attrs", False)
+        self.update(**kwargs.pop("config_data", {}))
+        if kwargs:
+            load_from_file_kwargs = {
+                k: kwargs.pop(f"file_{k}")
+                for k, v in self._get_by_prefix(kwargs, "file", True).items()
+            }
+            self.load_from_file(**load_from_file_kwargs)
+        if kwargs:
+            load_from_env_kwargs = {
+                k: kwargs.pop(f"env_{k}")
+                for k, v in self._get_by_prefix(kwargs, "env", True).items()
+            }
 
-            forced_file_type (FileTypes):
-                The file type of the source file, if you don't want to use the file's extension.
+            self.load_from_environment(**load_from_env_kwargs)
+        if kwargs:
+            load_from_secrets_manager_kwargs = {
+                k: kwargs.pop(k)
+                for k, v in self._get_by_prefix(kwargs, "aws", False).items()
+            }
+            self.load_from_secrets_manager(**load_from_secrets_manager_kwargs)
 
-            var_source_name (str):
-                The name of the variable source.
-
-            env_prefix (str):
-                The configuration keys will be loaded from the environment variables with this prefix.
-                Use the "*" wildcard if you want to load all environment variables as configuration keys.
-
-            precedence (int):
-                The precedence of the variable source.
-
-            **kwargs:
-                Arbitrary keyword arguments, to be loaded as class attributes.
-        """
-        try:
-            self._precedence = precedence
-            self._var_source_name = var_source_name
-            self._loose_attrs = loose_attrs
-            super().__init__(
-                source_file=source_file_path, forced_file_type=forced_file_type
-            )
-            super().load_env(env_prefix)
-
-            self.set_data(kwargs)
-            logger.debug(
-                f"Config object {self._var_source_name} created with precedence {self._precedence}"
-            )
-
-
-        except BYOConfigError as e:
-            raise e
-
-        except FileNotFoundError as e:
-            raise e
-
-        except ValueError as e:
-            raise e
-
-        except Exception as e:
-            raise e
+        if kwargs:
+            init_kwarg_prefixes = {"config", "file", "env", "aws"}
+            update_kwargs = {
+                k: v
+                for k, v in kwargs.items()
+                if not any(k.startswith(prefix) for prefix in init_kwarg_prefixes)
+            }
+            self.update(**update_kwargs)
 
     def include(self, plugin_class: Type[BaseVariableSource], **kwargs):
-        """
-        Include a plugin class in the config object.
-
-        Args:
-            plugin_class (Type[BaseVariableSource]):
-                The plugin class to include in the config object.
-
-            **kwargs:
-                Arbitrary keyword arguments to pass to the plugin class.
-        """
         try:
-            # get signature of plugin class
-            sig = inspect.signature(plugin_class)
-            # Compare kwargs to signature
-            for k, v in kwargs.items():
-                if k not in sig.parameters:
-                    raise BYOConfigError(
-                        f"Invalid parameter '{k}' for plugin class '{plugin_class.__name__}'",
-                        self,
-                    )
             plugin = plugin_class(**kwargs)  # type: ignore
-            self.set_data(plugin.get_data())
+            self.update(**plugin.as_dict())
             logger.debug(
-                f"Initialized plugin '{plugin_class.__name__}' with data: {plugin.get_data()}"
+                f"Initialized plugin '{plugin_class.__name__}' with data: {plugin.as_dict()}"
             )
 
         except BYOConfigError as e:
@@ -116,15 +76,3 @@ class Config(FileVariableSource, EnvVariableSource):
 
         except Exception as e:
             raise e
-
-    def __getattr__(self, item):
-        """
-        Allows getting and setting of unset class attrs
-        """
-        if self._loose_attrs:
-            try:
-                return self.__getattribute__(item)
-            except AttributeError:
-                self.__setattr__(item, None)
-                return self.__getattribute__(item)
-        return self.__getattribute__(item)

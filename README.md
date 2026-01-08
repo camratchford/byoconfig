@@ -89,7 +89,7 @@ class MyVarSource(BaseVariableSource):
     self.external_data = get_external_data(init_options)
 
     # Initializes the class attrs, making the data availalble via MyVarSource.var_name  
-    self.set_data(self.external_data)
+    self.set(self.external_data)
 
 
 # Start with a config object, containing the data from any source (optional)
@@ -111,7 +111,7 @@ from byoconfig import Config
 conf = Config(my_var="abc", my_var_2=123)
 
 # Via the set_data method / data property
-conf.set_data({"my_var": "abc"})
+conf.set({"my_var": "abc"})
 # Equivalent to
 conf.data = {"my_var": "abc"}
 
@@ -130,8 +130,8 @@ conf = Config()
 ...
 
 # Auto-detects the file-type based on file extension suffix
-conf.dump("running_config.yml")
+conf.dump_to_file("running_config.yml")
 # Overriding the auto-detect in case you have no extension
-conf.dump("running_config", forced_file_type="TOML")
+conf.dump_to_file("running_config", forced_file_type="TOML")
 
 ```
