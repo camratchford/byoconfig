@@ -1,6 +1,6 @@
 [project]
 name = "byoconfig"
-version = "0.1.1"
+version = "1.0.0"
 description = "A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -34,11 +34,11 @@ Homepage = "https://github.com/camratchford/byoconfig"
 Source = "https://github.com/camratchford/byoconfig"
 
 [project.scripts]
-project-version-bump = "byoconfig.scripts.bump_version:cli"
-project-build-and-publish = "byoconfig.scripts.build_and_publish:cli"
-project-format-and-lint = "byoconfig.scripts.format_and_lint:cli"
-project-run-tests = "byoconfig.scripts.run_tests:cli"
-project-do-release = "byoconfig.scripts.do_github_release:cli"
+byoconfig-version-bump = "byoconfig.scripts.bump_version:cli"
+byoconfig-build-and-publish = "byoconfig.scripts.build_and_publish:cli"
+byoconfig-format-and-lint = "byoconfig.scripts.format_and_lint:cli"
+byoconfig-run-tests = "byoconfig.scripts.run_tests:cli"
+byoconfig-do-release = "byoconfig.scripts.do_github_release:cli"
 
 [project.optional-dependencies]
 development = [
