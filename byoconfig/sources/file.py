@@ -1,6 +1,7 @@
 import logging
-from typing import Callable, Literal, Optional, Any
-from pathlib import Path
+from typing import Callable, Literal, Optional, Any, Union
+import datetime
+import pathlib
 from json import loads as json_load
 from json import dumps as json_dump
 from json.decoder import JSONDecodeError
@@ -14,6 +15,15 @@ from toml.decoder import TomlDecodeError
 
 from byoconfig.error import BYOConfigError
 from byoconfig.sources.base import BaseVariableSource
+from byoconfig.sources.type_conversion import (
+    get_date_from_date_str,
+    get_datetime_from_datetime_str,
+    get_path_from_path_str,
+    get_path_str_from_path,
+    get_datetime_str_from_datetime,
+    get_date_str_from_datetime,
+    get_path_list_from_path_str_list,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -27,18 +37,47 @@ class FileVariableSource(BaseVariableSource):
     A VariableSource that loads data from a file.
     """
 
-    _file_types = {"JSON", "YAML", "TOML"}
-    _file_method_types = {"load", "dump"}
-
+    _file_types: set[str] = {"JSON", "YAML", "TOML"}
+    _file_method_types: set[str] = {"load", "dump"}
     _metadata: set[str] = BaseVariableSource._metadata.union(
-        {"_file_types", "_file_method_types"}
+        {
+            "_file_types",
+            "_file_method_types",
+            "_valid_implied_types",
+            "_key_suffix_to_type_loader_func",
+            "_type_to_type_dumper_func",
+        }
     )
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self._key_suffix_to_type_loader_func = {
+            "_path": get_path_from_path_str,
+            "_file": get_path_from_path_str,
+            "_dir": get_path_from_path_str,
+            "_paths": get_path_list_from_path_str_list,
+            "_files": get_path_list_from_path_str_list,
+            "_dirs": get_path_list_from_path_str_list,
+            "_date": get_date_from_date_str,
+            "_datetime": get_datetime_from_datetime_str,
+        }
+        self._type_to_type_dumper_func = {
+            datetime.date: get_date_str_from_datetime,
+            datetime.datetime: get_datetime_str_from_datetime,
+            pathlib.Path: get_path_str_from_path,
+            # Blindly cast into a list, JSON and TOML don't support tuples or sets
+            tuple: self.convert_dumped_configuration_data,
+            set: self.convert_dumped_configuration_data,
+            # Recurse
+            list: self.convert_dumped_configuration_data,
+            dict: self.convert_dumped_configuration_data,
+        }
 
     def load_from_file(self, path: str = None, forced_type: FileTypes = None):
         if not path:
             return
         try:
-            path = Path(path)
+            path = pathlib.Path(path)
         except Exception as e:
             raise BYOConfigError(
                 f"An exception occurred while loading file '{str(path)}': {e.args}",
@@ -54,13 +93,15 @@ class FileVariableSource(BaseVariableSource):
 
             logger.debug(f"Read configuration data from '{str(path)}' as '{extension}'")
 
-            self.update(configuration_data)
+            self.update(**configuration_data)
 
         except Exception as e:
             raise BYOConfigError(e.args[0], self)
 
-    def dump_to_file(self, destination_path: Path, forced_type: FileTypes = None):
-        destination_path = Path(destination_path)
+    def dump_to_file(
+        self, destination_path: pathlib.Path, forced_type: FileTypes = None
+    ):
+        destination_path = pathlib.Path(destination_path)
         if not destination_path.parent.exists():
             destination_path.mkdir(mode=0o755, parents=True)
 
@@ -81,7 +122,7 @@ class FileVariableSource(BaseVariableSource):
 
     @staticmethod
     def _determine_file_type(
-        source_file: Path, forced_file_type: FileTypes = None
+        source_file: pathlib.Path, forced_file_type: FileTypes = None
     ) -> FileTypes:
         """
         Determines the file type of the source file. (One of 'JSON', 'YAML', 'TOML')
@@ -113,7 +154,7 @@ class FileVariableSource(BaseVariableSource):
 
     def _map_extension_to_load_method(
         self, file_type: FileTypes, method_type: Literal["load", "dump"]
-    ) -> Callable[[Path], dict]:
+    ) -> Callable[[pathlib.Path], dict]:
         """
         Maps the file typed (JSON, YAML, or TOML) to the appropriate load or dump method.
         """
@@ -128,11 +169,11 @@ class FileVariableSource(BaseVariableSource):
 
         return getattr(self, method_name)
 
-    def _load_json(self, source_file: Path) -> dict[Any, Any]:
+    def _load_json(self, source_file: pathlib.Path) -> dict[Any, Any]:
         try:
             file_contents = source_file.read_text()
             data = json_load(file_contents)
-            return data
+            return self.convert_loaded_data(data)
 
         except UnicodeDecodeError as e:
             raise BYOConfigError(
@@ -146,10 +187,11 @@ class FileVariableSource(BaseVariableSource):
                 self,
             ) from e
 
-    def _dump_json(self, destination_file: Path):
+    def _dump_json(self, destination_file: pathlib.Path):
         try:
             with open(destination_file, "w", encoding="utf-8") as json_file:
-                json = json_dump(self._data, indent=4)
+                out_data = self.convert_dumped_configuration_data(self._data)
+                json = json_dump(out_data, indent=4)
                 json_file.write(json)
         except Exception as e:
             raise BYOConfigError(
@@ -157,11 +199,11 @@ class FileVariableSource(BaseVariableSource):
                 self,
             ) from e
 
-    def _load_yaml(self, source_file: Path) -> dict[Any, Any]:
+    def _load_yaml(self, source_file: pathlib.Path) -> dict[Any, Any]:
         try:
             with open(source_file, "r") as file:
                 data = yaml_load(file)
-                return data
+                return self.convert_loaded_data(data)
 
         except MarkedYAMLError as e:
             raise BYOConfigError(
@@ -172,10 +214,11 @@ class FileVariableSource(BaseVariableSource):
     # Alias for load_yaml so the extension .yml can be used
     _load_yml = _load_yaml
 
-    def _dump_yaml(self, destination_file: Path):
+    def _dump_yaml(self, destination_file: pathlib.Path):
         with open(destination_file, "w", encoding="utf-8") as yaml_file:
             try:
-                yaml_dump(self._data, yaml_file)
+                out_data = self.convert_dumped_configuration_data(self._data)
+                yaml_dump(out_data, yaml_file)
 
             except MarkedYAMLError as e:
                 raise BYOConfigError(
@@ -192,11 +235,11 @@ class FileVariableSource(BaseVariableSource):
     # Alias for dump_yaml so the extension .yml can be used
     _dump_yml = _dump_yaml
 
-    def _load_toml(self, source_file: Path) -> dict[Any, Any]:
+    def _load_toml(self, source_file: pathlib.Path) -> dict[Any, Any]:
         try:
             with open(source_file, "r") as file:
                 data = toml_load(file)
-                return data
+                return self.convert_loaded_data(data)
 
         except TomlDecodeError as e:
             raise BYOConfigError(
@@ -210,10 +253,11 @@ class FileVariableSource(BaseVariableSource):
                 self,
             ) from e
 
-    def _dump_toml(self, destination_file: Path):
+    def _dump_toml(self, destination_file: pathlib.Path):
         try:
             with open(destination_file, "w", encoding="utf-8") as toml_file:
-                toml = toml_dump(self._data)
+                out_data = self.convert_dumped_configuration_data(self._data)
+                toml = toml_dump(out_data)
                 toml_file.write(toml)
 
         except Exception as e:
@@ -221,3 +265,44 @@ class FileVariableSource(BaseVariableSource):
                 f"Encountered unhandled exception while dumping TOML file '{str(destination_file)}': {e.args}",
                 self,
             ) from e
+
+    def convert_loaded_configuration_value(self, key: str, value: Any):
+        for suffix, converter in self._key_suffix_to_type_loader_func.items():
+            if key.endswith(suffix):
+                try:
+                    return converter(value)
+                except (ValueError, TypeError) as e:
+                    raise BYOConfigError(
+                        f"Could not convert '{key}' using {converter.__name__}: {e}",
+                        self,
+                    )
+        return value
+
+    def convert_loaded_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        for key, value in data.items():
+            if isinstance(value, dict):
+                data[key] = self.convert_loaded_data(value)
+            else:
+                data[key] = self.convert_loaded_configuration_value(key, value)
+        return data
+
+    def convert_dumped_configuration_value(self, value: Any):
+        for _type, converter in self._type_to_type_dumper_func.items():
+            if isinstance(value, _type):
+                return converter(value)
+        return value
+
+    def convert_dumped_configuration_data(
+        self, data: Union[dict[str, Any], list[Any], set[Any], tuple[Any]]
+    ) -> Union[dict[str, Any], list[Any]]:
+        if data == self._data:
+            for key, value in data.items():
+                data[key] = self.convert_dumped_configuration_value(value)
+            return data
+        if isinstance(data, list) or isinstance(data, set) or isinstance(data, tuple):
+            data_copy = [self.convert_dumped_configuration_value(i) for i in data]
+            return data_copy
+        else:
+            for key, value in data.items():
+                data[key] = self.convert_dumped_configuration_value(value)
+        return data

@@ -59,10 +59,14 @@ def main(
     dry_run: bool = False,
 ) -> None:
     version_bump_magnitude = (
-        "dev" if dev_release
-        else "patch" if patch_release
-        else "minor" if minor_release
-        else "major" if major_release
+        "dev"
+        if dev_release
+        else "patch"
+        if patch_release
+        else "minor"
+        if minor_release
+        else "major"
+        if major_release
         else None
     )
 
@@ -86,16 +90,24 @@ def cli():
     parser = argparse.ArgumentParser(description="Bump version and create release.")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
-        "--dev", action="store_true", help="Bump dev version: Maj.Min.Pat.devDev → Maj.Min.Pat.dev{Dev+1}"
+        "--dev",
+        action="store_true",
+        help="Bump dev version: Maj.Min.Pat.devDev → Maj.Min.Pat.dev{Dev+1}",
     )
     group.add_argument(
-        "--patch", action="store_true", help="Bump patch version: Maj.Min.Pat → Maj.Min.{Pat+1}"
+        "--patch",
+        action="store_true",
+        help="Bump patch version: Maj.Min.Pat → Maj.Min.{Pat+1}",
     )
     group.add_argument(
-        "--minor", action="store_true", help="Bump minor version: Maj.Min.Pat → Maj.{Min+1}.0"
+        "--minor",
+        action="store_true",
+        help="Bump minor version: Maj.Min.Pat → Maj.{Min+1}.0",
     )
     group.add_argument(
-        "--major", action="store_true", help="Bump major version: Maj.Min.Pat → {Maj+1}.0.0"
+        "--major",
+        action="store_true",
+        help="Bump major version: Maj.Min.Pat → {Maj+1}.0.0",
     )
     group.add_argument(
         "--manual-version",

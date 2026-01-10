@@ -1,3 +1,5 @@
+import datetime
+import pathlib
 import tempfile
 from os import environ
 from pathlib import Path
@@ -10,12 +12,11 @@ from toml import load as toml_load
 
 from byoconfig.config import Config
 
-from fixtures.pathing import example_configs
+from fixtures.pathing import example_configs, fixtures_dir
 from fixtures.fixture_source_classes import (
     PluginVarSource,
     ASubClassOfSingletonConfig,
     new_instance_of_singleton,
-    ConfigWithClassAttrs,
 )
 from fixtures.secrets_manager_data import a_test_secret_data, a_test_secret
 
@@ -119,16 +120,48 @@ def test_file_var_source_methods():
 
 
 def test_env_var_source_methods():
-    env_prefix = "BYO_CONFIG_TEST"
-    env_var = "BYO_CONFIG_TEST_ENV_VAR"
-    env_val = "test_value"
+    """
+    Test loading and dumping configuration data with environment variables.
+    Note: Setting environment variables always results in a string.
+    There isn't a good way to get the config data's original type, so we will only test string values.
+    """
 
-    env_dict = {env_var: env_val}
-    environ.update(env_dict)
+    # Test loading from env
+    test_dict_1 = {"test_var_1": "abc", "test_var_2": "123"}
 
-    env_source = Config(env_prefix=env_prefix)
+    environ.update(test_dict_1)
 
-    assert env_source.get("env_var") == environ.get(env_var)
+    env_config_1 = Config(env_prefix="test")
+    assert env_config_1.get("var_1") == environ.get("test_var_1")
+    assert env_config_1.get("var_2") == environ.get("test_var_2")
+
+    # Test the "*" special value for env_prefix
+    env_config_2 = Config(env_prefix="*")
+
+    assert env_config_2.get("PATH") == environ.get("PATH")
+
+    # Test dumping to env
+    test_dict_2 = {"foo": "xyz", "bar": "890"}
+    env_config_2 = Config(**test_dict_2)
+
+    env_config_2.dump_to_environment()
+    assert environ.get("FOO") == "xyz" and environ.get("BAR") == "890"
+
+    env_config_2.dump_to_environment(selected_keys=["foo"], use_uppercase=False)
+    assert environ.get("foo") == "xyz"
+
+    env_config_2.dump_to_environment(
+        selected_keys=["foo"], use_uppercase=True, with_prefix="test"
+    )
+    assert environ.get("TEST_FOO") == "xyz"
+
+    env_config_2.dump_to_environment(
+        selected_keys=["foo", "bar"], use_uppercase=False, with_prefix="another_test"
+    )
+    assert (
+        environ.get("another_test_foo") == "xyz"
+        and environ.get("another_test_bar") == "890"
+    )
 
 
 def test_aws_secrets_manager_methods():
@@ -184,6 +217,151 @@ def test_singleton_config():
     assert config1.get("var3") == config2.get("var3") == config3.get("var3") == 3
 
 
-def test_class_vars():
-    config = ConfigWithClassAttrs()
-    assert config.get("a_class_var") == "I hope this works"
+def test_type_conversion_loading():
+    toml_file = str(fixtures_dir / "types.toml")
+    toml_config = Config(file_path=toml_file)
+    toml_data = toml_config.as_dict()
+    assert isinstance(toml_data.get("ssh_private_key_file"), Path)
+    assert isinstance(toml_data.get("date_1"), datetime.datetime)
+    assert isinstance(toml_data.get("date_2"), datetime.datetime)
+    assert isinstance(toml_data.get("date_3"), datetime.date)
+    assert isinstance(toml_data.get("owner").get("dob"), datetime.datetime)
+    assert isinstance(toml_data.get("file_locations").get("this_file"), Path)
+    assert all(
+        isinstance(v, Path)
+        for v in toml_data.get("file_locations").get("a_list_of_paths")
+    )
+
+    yaml_file = str(fixtures_dir / "types.yml")
+    yaml_config = Config(file_path=yaml_file)
+    yaml_data = yaml_config.as_dict()
+    assert isinstance(yaml_data.get("ssh_private_key_file"), Path)
+    assert isinstance(yaml_data.get("date_1"), datetime.datetime)
+    assert isinstance(yaml_data.get("date_2"), datetime.datetime)
+    assert isinstance(yaml_data.get("date_3"), datetime.date)
+    assert isinstance(yaml_data.get("owner").get("dob"), datetime.datetime)
+    assert isinstance(yaml_data.get("file_locations").get("this_file"), Path)
+    assert all(
+        isinstance(v, Path)
+        for v in yaml_data.get("file_locations").get("a_list_of_paths")
+    )
+
+    json_file = str(fixtures_dir / "types.json")
+    json_config = Config(file_path=json_file)
+    json_data = json_config.as_dict()
+    assert isinstance(json_data.get("ssh_private_key_file"), Path)
+    assert isinstance(json_data.get("date_1"), datetime.datetime)
+    assert isinstance(json_data.get("date_2"), datetime.datetime)
+    assert isinstance(json_data.get("date_3"), datetime.date)
+    assert isinstance(json_data.get("owner").get("dob"), datetime.datetime)
+    assert isinstance(json_data.get("file_locations").get("this_file"), Path)
+    assert all(
+        isinstance(v, Path)
+        for v in json_data.get("file_locations").get("a_list_of_paths")
+    )
+
+
+def test_type_conversion_dumping():
+    # Ensure that datetime.date, datetime.datetime, and pathlib.Path
+    # can be created from their string representations
+    test_dict = {
+        "test_date": datetime.date.today(),
+        "test_datetime": datetime.datetime.now(),
+        "test_path": pathlib.Path("./test"),
+        "test_file": pathlib.Path("~/test"),
+        "test_dir": pathlib.Path("/test"),
+        "test_files": [
+            pathlib.Path("test1"),
+            pathlib.Path("test2"),
+            pathlib.Path("test3"),
+        ],
+        "test_nested": {
+            "another_test_dir": pathlib.Path("/test"),
+        },
+    }
+
+    yaml_config = Config(**test_dict)
+    toml_config = Config(**test_dict)
+    json_config = Config(**test_dict)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        yaml_outfile = Path(tempdir) / "outfile.yml"
+        yaml_config.dump_to_file(yaml_outfile)
+        yaml_data = yaml_load(yaml_outfile.read_text())
+        assert sorted(yaml_config.as_dict()) == sorted(yaml_data)
+
+        toml_outfile = Path(tempdir) / "outfile.toml"
+        toml_config.dump_to_file(toml_outfile)
+        with open(toml_outfile) as f:
+            toml_data = toml_load(f)
+        assert sorted(toml_config.as_dict()) == sorted(toml_data)
+
+        json_outfile = Path(tempdir) / "outfile.json"
+        json_config.dump_to_file(json_outfile)
+        json_data = json_load(json_outfile.read_text())
+        assert sorted(json_config.as_dict()) == sorted(json_data)
+
+        assert (
+            sorted(test_dict.items())
+            == sorted(yaml_data.items())
+            == sorted(toml_data.items())
+            == sorted(json_data.items())
+        )
+
+
+def test_tuple_and_set_conversion():
+    # Ensure that values with the type set or tuple are implicitly converted to type list
+    # necessary for mutual compatibility between YAML, TOML, JSON
+    test_dict_2 = {
+        "should_be_a_list": ("value_1", "value_2"),
+        "should_also_be_a_list": {"value_1", "value_2"},
+    }
+    result_dict = {
+        "should_be_a_list": ["value_1", "value_2"],
+        "should_also_be_a_list": ["value_2", "value_1"],
+    }
+
+    yaml_config_2 = Config(**test_dict_2)
+    toml_config_2 = Config(**test_dict_2)
+    json_config_2 = Config(**test_dict_2)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        yaml_outfile_2 = Path(tempdir) / "outfile_2.yml"
+        yaml_config_2.dump_to_file(yaml_outfile_2)
+        yaml_data_2 = yaml_load(yaml_outfile_2.read_text())
+
+        toml_outfile_2 = Path(tempdir) / "outfile_2.toml"
+        toml_config_2.dump_to_file(toml_outfile_2)
+        with open(toml_outfile_2) as f:
+            toml_data_2 = toml_load(f)
+
+        json_outfile_2 = Path(tempdir) / "outfile_2.json"
+        json_config_2.dump_to_file(json_outfile_2)
+        json_data_2 = json_load(json_outfile_2.read_text())
+
+        assert isinstance(yaml_config_2.get("should_be_a_list"), list)
+        assert isinstance(toml_config_2.get("should_be_a_list"), list)
+        assert isinstance(json_config_2.get("should_be_a_list"), list)
+        assert isinstance(yaml_config_2.get("should_also_be_a_list"), list)
+        assert isinstance(toml_config_2.get("should_also_be_a_list"), list)
+        assert isinstance(json_config_2.get("should_also_be_a_list"), list)
+
+        assert (
+            yaml_config_2.get("should_be_a_list")
+            == yaml_data_2.get("should_be_a_list")
+            == toml_config_2.get("should_be_a_list")
+            == toml_data_2.get("should_be_a_list")
+            == json_config_2.get("should_be_a_list")
+            == json_data_2.get("should_be_a_list")
+            == result_dict.get("should_be_a_list")
+        )
+
+        assert (
+            yaml_config_2.get("should_also_be_a_list")
+            == yaml_data_2.get("should_also_be_a_list")
+            == toml_config_2.get("should_also_be_a_list")
+            == toml_data_2.get("should_also_be_a_list")
+            == json_config_2.get("should_also_be_a_list")
+            == json_data_2.get("should_also_be_a_list")
+            == result_dict.get("should_also_be_a_list")
+        )

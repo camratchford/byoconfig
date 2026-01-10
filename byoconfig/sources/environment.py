@@ -61,7 +61,7 @@ class EnvVariableSource(BaseVariableSource):
 
         if prefix == "*":
             # We can ignore trim_prefix
-            self.update(dict(environ))
+            self._update_skip_invalid(dict(environ))
             logger.debug("Loaded all environment variables as configuration data")
 
             return
@@ -140,6 +140,5 @@ class EnvVariableSource(BaseVariableSource):
             data = {f"{with_prefix}_{k}": str(v) for k, v in data.items()}
             for k, v in data.items():
                 environ[k] = str(v)
-                print(environ[k])
         except Exception as e:
             raise e
