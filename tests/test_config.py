@@ -120,16 +120,47 @@ def test_file_var_source_methods():
 
 
 def test_env_var_source_methods():
-    env_prefix = "BYO_CONFIG_TEST"
-    env_var = "BYO_CONFIG_TEST_ENV_VAR"
-    env_val = "test_value"
+    """
+    Test loading and dumping configuration data with environment variables.
+    Note: Setting environment variables always results in a string.
+    There isn't a good way to get the config data's original type, so we will only test string values.
+    """
 
-    env_dict = {env_var: env_val}
-    environ.update(env_dict)
+    # Test loading from env
+    test_dict_1 = {
+        "test_var_1": "abc",
+        "test_var_2": "123"
+    }
 
-    env_source = Config(env_prefix=env_prefix)
+    environ.update(test_dict_1)
 
-    assert env_source.get("env_var") == environ.get(env_var)
+    env_config_1 = Config(env_prefix="test")
+    assert env_config_1.get("var_1") == environ.get("test_var_1")
+    assert env_config_1.get("var_2") == environ.get("test_var_2")
+
+    # Test the "*" special value for env_prefix
+    env_config_2 = Config(env_prefix="*")
+
+    assert env_config_2.get("PATH") == environ.get("PATH")
+
+    # Test dumping to env
+    test_dict_2 = {
+        "foo": "xyz",
+        "bar": "890"
+    }
+    env_config_2 = Config(**test_dict_2)
+
+    env_config_2.dump_to_environment()
+    assert environ.get("FOO") == "xyz" and environ.get("BAR") == "890"
+
+    env_config_2.dump_to_environment(selected_keys=["foo"], use_uppercase=False)
+    assert environ.get("foo") == "xyz"
+
+    env_config_2.dump_to_environment(selected_keys=["foo"], use_uppercase=True, with_prefix="test")
+    assert environ.get("TEST_FOO") == "xyz"
+
+    env_config_2.dump_to_environment(selected_keys=["foo", "bar"], use_uppercase=False, with_prefix="another_test")
+    assert environ.get("another_test_foo") == "xyz" and environ.get("another_test_bar") == "890"
 
 
 def test_aws_secrets_manager_methods():

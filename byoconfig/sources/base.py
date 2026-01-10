@@ -134,6 +134,22 @@ class BaseVariableSource:
 
         self.__setattr__(key, value)
 
+    def _update_skip_invalid(self, data: dict[str, Any] = None, /, **kwargs):
+        values = {}
+        if data is not None:
+            values = data
+        if kwargs:
+            values = kwargs
+
+        if not values:
+            return
+
+        for key, value in values.items():
+            if not self._is_valid_key_name(key):
+                continue
+
+            self._data[key] = value
+
     def update(self, data: dict[str, Any] = None, /, **kwargs):
         values = {}
         if data is not None:
