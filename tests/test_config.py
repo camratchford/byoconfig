@@ -127,10 +127,7 @@ def test_env_var_source_methods():
     """
 
     # Test loading from env
-    test_dict_1 = {
-        "test_var_1": "abc",
-        "test_var_2": "123"
-    }
+    test_dict_1 = {"test_var_1": "abc", "test_var_2": "123"}
 
     environ.update(test_dict_1)
 
@@ -144,10 +141,7 @@ def test_env_var_source_methods():
     assert env_config_2.get("PATH") == environ.get("PATH")
 
     # Test dumping to env
-    test_dict_2 = {
-        "foo": "xyz",
-        "bar": "890"
-    }
+    test_dict_2 = {"foo": "xyz", "bar": "890"}
     env_config_2 = Config(**test_dict_2)
 
     env_config_2.dump_to_environment()
@@ -156,11 +150,18 @@ def test_env_var_source_methods():
     env_config_2.dump_to_environment(selected_keys=["foo"], use_uppercase=False)
     assert environ.get("foo") == "xyz"
 
-    env_config_2.dump_to_environment(selected_keys=["foo"], use_uppercase=True, with_prefix="test")
+    env_config_2.dump_to_environment(
+        selected_keys=["foo"], use_uppercase=True, with_prefix="test"
+    )
     assert environ.get("TEST_FOO") == "xyz"
 
-    env_config_2.dump_to_environment(selected_keys=["foo", "bar"], use_uppercase=False, with_prefix="another_test")
-    assert environ.get("another_test_foo") == "xyz" and environ.get("another_test_bar") == "890"
+    env_config_2.dump_to_environment(
+        selected_keys=["foo", "bar"], use_uppercase=False, with_prefix="another_test"
+    )
+    assert (
+        environ.get("another_test_foo") == "xyz"
+        and environ.get("another_test_bar") == "890"
+    )
 
 
 def test_aws_secrets_manager_methods():
