@@ -16,10 +16,6 @@ default_dist_path = project_root / "dist"
 
 
 def build_python_package(dist_dir: Path):
-    this_file = Path(__file__).resolve()
-    this_dir = this_file.parent
-    project_root = this_dir.parent.parent
-
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
     dist_dir.mkdir(parents=True, exist_ok=True)
@@ -62,7 +58,7 @@ def cli():
     args = parser.parse_args()
 
     check_package_installed_as_editable()
-    main(args.sdist_dir, publish_to_pypi=args.publish)
+    main(args.dist_dir, publish_to_pypi=args.publish)
 
 
 if __name__ == "__main__":
