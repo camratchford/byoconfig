@@ -42,6 +42,7 @@ byoconfig-do-release = "byoconfig.scripts.do_github_release:cli"
 
 [project.optional-dependencies]
 development = [
+    "setuptools",
     "mkdocs",
     "mkdocs-material",
     "ruff",
