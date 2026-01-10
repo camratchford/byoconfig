@@ -10,7 +10,7 @@ from .common import (
 )
 
 
-def create_release(version: str,  github_token: str, release_notes: str):
+def create_release(version: str, github_token: str, release_notes: str):
     github_client = Github(github_token)
     github_repo = github_client.get_repo("camratchford/byoconfig")
 

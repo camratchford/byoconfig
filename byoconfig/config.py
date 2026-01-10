@@ -27,6 +27,7 @@ class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource
     """
 
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._metadata = self._metadata.union(
             {name for name in self.__dir__() if ismethod(getattr(self, name))}
         )

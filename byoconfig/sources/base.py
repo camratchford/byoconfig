@@ -3,6 +3,7 @@ import re
 from re import compile
 from typing import Any
 
+
 from byoconfig.error import BYOConfigError
 
 logger = logging.getLogger(__name__)
@@ -57,8 +58,8 @@ class BaseVariableSource:
     """
 
     name: str = ""
-    _assign_attrs: bool = False
     _metadata: set[str] = {"name", "_metadata", "_assign_attrs", "_data"}
+    _assign_attrs: bool = False
     _data: dict[str, Any] = {}
 
     def _is_valid_key_name(self, key: str):
@@ -181,15 +182,6 @@ class BaseVariableSource:
 
     def as_dict(self, copy: bool = True):
         return self._data.copy() if copy else self._data
-
-    def __init_subclass__(cls, **kwargs):
-        """
-        Ensures that subclasses can add class attributes as configuration data, expecting to access
-        it via .get("class_attr_name") or .as_dict()["class_attr_name"]
-        """
-        cls._data.update(
-            {k: v for k, v in cls.__dict__.items() if cls._is_valid_key_name(cls, k)}
-        )
 
     def __len__(self):
         return len(self._data)
