@@ -132,12 +132,16 @@ def test_env_var_source_methods():
 
     # Test loading from env
     test_dict_1 = {"test_var_1": "abc", "test_var_2": "123"}
-
+    test_dict_2 = {"TEST_VAR_3": "efg"}
     environ.update(test_dict_1)
 
     env_config_1 = Config(env_prefix="test")
     assert env_config_1.get("var_1") == environ.get("test_var_1")
     assert env_config_1.get("var_2") == environ.get("test_var_2")
+
+    environ.update(test_dict_2)
+    env_config_1.load_from_environment(prefix="TEST")
+    assert env_config_1.get("var_3") == "efg"
 
     # Test the "*" special value for env_prefix
     env_config_2 = Config(env_prefix="*")
