@@ -17,6 +17,10 @@ from fixtures.fixture_source_classes import (
     PluginVarSource,
     ASubClassOfSingletonConfig,
     new_instance_of_singleton,
+    ConfigWithClassAttrs,
+    ConfigWithInstanceAttrs,
+    SingletonConfigWithClassAttrs,
+    SingletonConfigWithInstanceAttrs,
 )
 from fixtures.secrets_manager_data import a_test_secret_data, a_test_secret
 
@@ -128,12 +132,16 @@ def test_env_var_source_methods():
 
     # Test loading from env
     test_dict_1 = {"test_var_1": "abc", "test_var_2": "123"}
-
+    test_dict_2 = {"TEST_VAR_3": "efg"}
     environ.update(test_dict_1)
 
     env_config_1 = Config(env_prefix="test")
     assert env_config_1.get("var_1") == environ.get("test_var_1")
     assert env_config_1.get("var_2") == environ.get("test_var_2")
+
+    environ.update(test_dict_2)
+    env_config_1.load_from_environment(prefix="TEST")
+    assert env_config_1.get("var_3") == "efg"
 
     # Test the "*" special value for env_prefix
     env_config_2 = Config(env_prefix="*")
@@ -365,3 +373,27 @@ def test_tuple_and_set_conversion():
             == json_data_2.get("should_also_be_a_list")
             == result_dict.get("should_also_be_a_list")
         )
+
+
+def test_class_attrs():
+    config = ConfigWithClassAttrs(var_1=2)
+
+    # Set in ConfigWithInstanceAttrs.__init__
+    assert config.get("class_attr_1") == 1
+    assert config.get("var_1") == 2
+
+    singleton_config = SingletonConfigWithClassAttrs(var_1=2)
+    assert singleton_config.get("class_attr_1") == 1
+    assert singleton_config.get("var_1") == 2
+
+
+def test_instance_attrs():
+    config = ConfigWithInstanceAttrs(var_1=2)
+
+    # Set in ConfigWithInstanceAttrs.__init__
+    assert config.get("instance_var_1") == 1
+    assert config.get("var_1") == 2
+
+    singleton_config = SingletonConfigWithInstanceAttrs(var_1=2)
+    assert singleton_config.get("class_attr_1") == 1
+    assert singleton_config.get("var_1") == 2

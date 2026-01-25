@@ -64,6 +64,21 @@ class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource
             }
             self.update(**update_kwargs)
 
+        self._load_instance_attrs()
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        Ensures class attributes are loaded as configuration data.
+        """
+        class_attributes = {k: v for k, v in cls.__dict__.items() if cls._is_valid_key_name(cls, k)}
+        if class_attributes:
+            cls._data.update(class_attributes)
+        return cls
+
+    def _load_instance_attrs(self):
+        instance_attrs = {k: v for k, v in self.__dict__.items() if self._is_valid_key_name(k)}
+        self.update(instance_attrs)
+
     def include(self, plugin_class: Type[BaseVariableSource], **kwargs):
         try:
             plugin = plugin_class(**kwargs)  # type: ignore
