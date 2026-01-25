@@ -24,6 +24,21 @@ class PluginVarSource(BaseVariableSource):
         }
 
 
-
 class ConfigWithClassAttrs(Config):
-    a_class_var = "I hope this works"
+    class_attr_1 = 1
+
+
+class ConfigWithInstanceAttrs(Config):
+    def __init__(self, **kwargs):
+        self.instance_var_1 = 1
+        super().__init__(**kwargs)
+
+
+class SingletonConfigWithClassAttrs(SingletonConfig):
+    class_attr_1 = 1
+
+
+class SingletonConfigWithInstanceAttrs(SingletonConfig):
+    def __init__(self, **kwargs):
+        self.instance_var_1 = 1
+        super().__init__(**kwargs)

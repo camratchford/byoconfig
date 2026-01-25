@@ -322,3 +322,13 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
                 If false, return the actual configuration data dict.
         """
         ...
+
+    def _load_instance_attrs(self):
+        """
+        Loads instance attributes defined in the subclass's '__init__()' method as configuration data.
+        """
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        Loads class attributes located in the subclass body as configuration data.
+        """
