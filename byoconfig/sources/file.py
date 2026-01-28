@@ -269,7 +269,8 @@ class FileVariableSource(BaseVariableSource):
     @property
     def exportable_data(self):
         return {
-            name: value for name, value in self._data.items()
+            name: value
+            for name, value in self._data.items()
             if name not in self._get_class_vars_by_annotated_type("excluded")
         }
 

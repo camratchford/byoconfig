@@ -8,7 +8,6 @@ _singleton_lock = threading.Lock()
 
 def singleton__new__method(_kls) -> Callable[..., Any]:
     def __new__(cls, *args, **kwargs):
-
         if cls._instance is None:
             with _singleton_lock:
                 # Double-check pattern

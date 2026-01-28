@@ -209,8 +209,11 @@ class BaseVariableSource:
             return {}
 
         return {
-            attr_name: self.get(attr_name) for attr_name, hint in type_hints.items() if
-            hasattr(self, attr_name) and hasattr(hint, "__metadata__") and annotation in hint.__metadata__
+            attr_name: self.get(attr_name)
+            for attr_name, hint in type_hints.items()
+            if hasattr(self, attr_name)
+            and hasattr(hint, "__metadata__")
+            and annotation in hint.__metadata__
         }
 
     def __len__(self):
