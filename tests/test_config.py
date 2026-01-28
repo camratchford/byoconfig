@@ -8,6 +8,7 @@ from json import loads as json_load
 from mocks.mock_secrets_manager_client import MockSecretsManagerClient
 from unittest.mock import patch
 
+import pytest
 from yaml import safe_load as yaml_load
 from toml import load as toml_load
 
@@ -478,3 +479,12 @@ def test_dumping_excluded_attrs():
             assert "class_var_that_gets_value_later_excluded" not in dumped_config
             assert "class_var_added_via_init_excluded" not in dumped_config
             assert "class_var_added_via_init_included" in dumped_config
+
+
+def test_non_existent_file_path_arg():
+    # Exception not raised
+    Config(file_path="a_path_that_doesnt_exist.yml", file_not_exists_ok=True)
+    # Exception raised
+    with pytest.raises(FileNotFoundError):
+        # With default file_not_exists_ok=False
+        Config(file_path="a_path_that_doesnt_exist.yml")

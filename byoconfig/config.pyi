@@ -20,6 +20,7 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         env_trim_prefix: bool = True,
         file_path: Optional[str] = None,
         file_forced_type: Optional[FileTypes] = None,
+        file_not_exists_ok: Optional[bool] = False,
         aws_secret_name: Optional[str] = "",
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
@@ -74,6 +75,10 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
 
             file_forced_type (FileTypes: ['YAML', 'JSON', 'TOML'] ):
                 The file type of the source file, if you don't want to use the file's extension.
+
+            file_not_exists_ok (Optional[bool]):
+                If False, an exception will be raised if the file at `file_path` does not exist.
+                If True, the configuration will continue as normal if the file at `file_path` does not exist.
 
             aws_secret_name (str):
                 The name of the secret stored in AWS Secrets Manager.

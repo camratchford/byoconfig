@@ -68,12 +68,17 @@ class FileVariableSource(BaseVariableSource):
             # Blindly cast into a list, JSON and TOML don't support tuples or sets
             tuple: self.convert_dumped_configuration_data,
             set: self.convert_dumped_configuration_data,
-            # Recurse
+            # Recurse, ensuring types are cast throughout the data structure
             list: self.convert_dumped_configuration_data,
             dict: self.convert_dumped_configuration_data,
         }
 
-    def load_from_file(self, path: str = None, forced_type: FileTypes = None):
+    def load_from_file(
+        self,
+        path: str = None,
+        forced_type: FileTypes = None,
+        not_exists_ok: bool = False,
+    ):
         if not path:
             return
         try:
@@ -83,6 +88,10 @@ class FileVariableSource(BaseVariableSource):
                 f"An exception occurred while loading file '{str(path)}': {e.args}",
                 self,
             )
+
+        if not path.exists() and not_exists_ok:
+            return
+
         if not path.exists():
             raise FileNotFoundError(f"Config file {str(path)} does not exist")
 
