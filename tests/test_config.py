@@ -1,6 +1,7 @@
 import datetime
 import pathlib
 import tempfile
+from typing import Annotated
 from os import environ
 from pathlib import Path
 from json import loads as json_load
@@ -13,15 +14,6 @@ from toml import load as toml_load
 from byoconfig.config import Config
 
 from fixtures.pathing import example_configs, fixtures_dir
-from fixtures.fixture_source_classes import (
-    PluginVarSource,
-    ASubClassOfSingletonConfig,
-    new_instance_of_singleton,
-    ConfigWithClassAttrs,
-    ConfigWithInstanceAttrs,
-    SingletonConfigWithClassAttrs,
-    SingletonConfigWithInstanceAttrs,
-)
 from fixtures.secrets_manager_data import a_test_secret_data, a_test_secret
 
 
@@ -187,6 +179,8 @@ def test_aws_secrets_manager_methods():
 
 
 def test_config_include_method():
+    from fixtures.fixture_source_classes import PluginVarSource
+
     config = Config(
         test_var1="will_be_overwritten",
         test_var2="will_be_overwritten",
@@ -204,6 +198,10 @@ def test_singleton_config():
     """
     Any subsequent calls to SingletonConfig.__new__ should return the same instance
     """
+    from fixtures.fixture_source_classes import (
+        ASubClassOfSingletonConfig,
+        new_instance_of_singleton,
+    )
 
     config1 = ASubClassOfSingletonConfig()
     config1.set("var1", 1)
@@ -376,6 +374,11 @@ def test_tuple_and_set_conversion():
 
 
 def test_class_attrs():
+    from fixtures.fixture_source_classes import (
+        ConfigWithClassAttrs,
+        SingletonConfigWithClassAttrs,
+    )
+
     config = ConfigWithClassAttrs(var_1=2)
 
     # Set in ConfigWithInstanceAttrs.__init__
@@ -388,6 +391,11 @@ def test_class_attrs():
 
 
 def test_instance_attrs():
+    from fixtures.fixture_source_classes import (
+        ConfigWithInstanceAttrs,
+        SingletonConfigWithInstanceAttrs,
+    )
+
     config = ConfigWithInstanceAttrs(var_1=2)
 
     # Set in ConfigWithInstanceAttrs.__init__
@@ -397,3 +405,76 @@ def test_instance_attrs():
     singleton_config = SingletonConfigWithInstanceAttrs(var_1=2)
     assert singleton_config.get("class_attr_1") == 1
     assert singleton_config.get("var_1") == 2
+
+
+def test_annotated_attrs():
+    class ConfigWithAnnotatedAttrs(Config):
+        class_var_annotated: Annotated[str, "something"] = "should appear"
+        class_var_naked: str = "shouldn't appear"
+
+        # Shouldn't appear, as it does not match 'something'
+        class_var_annotated_not_included: Annotated[str, "not_something"] = (
+            "shouldn't appear"
+        )
+
+        # Shouldn't appear, as it doesn't ever get a value
+        class_var_without_value: Annotated[str, "something"]
+
+        # Works with types as well. Might use this later for type coercion.
+        class_var_with_type: Annotated[str, int] = "123"
+
+        # Will only appear if it gets a value later
+        class_var_that_gets_value_later: Annotated[str, "something"]
+
+        def __init__(self, **kwargs):
+            self.class_var_that_gets_value_later = "should also appear"
+            super().__init__(**kwargs)
+
+    config = ConfigWithAnnotatedAttrs()
+
+    assert config._get_class_vars_by_annotated_type("something")
+    assert config._get_class_vars_by_annotated_type("something") == {
+        "class_var_annotated": "should appear",
+        "class_var_that_gets_value_later": "should also appear",
+    }
+
+    assert config._get_class_vars_by_annotated_type(int)
+    assert config._get_class_vars_by_annotated_type(int) == {
+        "class_var_with_type": "123"
+    }
+
+
+def test_dumping_excluded_attrs():
+    class ConfigThatDumpsAnnotatedAttrs(Config):
+        class_var_excluded: Annotated[str, "excluded"] = "don't export me"
+        class_var_naked: str = "export me"
+        class_var_annotated_included: Annotated[str, "not_something"] = "export me"
+        # If value is defined before `super().__init__()` is called, it doesn't need a value now
+        class_var_that_gets_value_later_excluded: Annotated[str, "excluded"]
+        class_var_that_gets_value_later_included: str
+        # If value is defined within or after `super()__init__()` (file, env, aws, kwargs), a value must be defined now
+        class_var_added_via_init_excluded: Annotated[str, "excluded"] = None
+        class_var_added_via_init_included: str
+
+        def __init__(self, **kwargs):
+            self.class_var_that_gets_value_later_exported = "export me"
+            self.class_var_that_gets_value_later = "don't export me"
+            super().__init__(**kwargs)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        out_file = Path(tempdir) / "dumped_config.yml"
+        dumping_config = ConfigThatDumpsAnnotatedAttrs(
+            class_var_added_via_init_excluded="123",
+            class_var_added_via_init_included="abc",
+        )
+        dumping_config.dump_to_file(out_file)
+
+        with open(out_file, "r") as yaml_out:
+            dumped_config = yaml_load(yaml_out)
+            assert "class_var_excluded" not in dumped_config
+            assert "class_var_naked" in dumped_config
+            assert "class_var_annotated_included" in dumped_config
+            assert "class_var_that_gets_value_later_included" in dumped_config
+            assert "class_var_that_gets_value_later_excluded" not in dumped_config
+            assert "class_var_added_via_init_excluded" not in dumped_config
+            assert "class_var_added_via_init_included" in dumped_config

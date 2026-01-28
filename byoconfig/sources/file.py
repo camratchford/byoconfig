@@ -190,7 +190,7 @@ class FileVariableSource(BaseVariableSource):
     def _dump_json(self, destination_file: pathlib.Path):
         try:
             with open(destination_file, "w", encoding="utf-8") as json_file:
-                out_data = self.convert_dumped_configuration_data(self._data)
+                out_data = self.convert_dumped_configuration_data(self.exportable_data)
                 json = json_dump(out_data, indent=4)
                 json_file.write(json)
         except Exception as e:
@@ -217,7 +217,7 @@ class FileVariableSource(BaseVariableSource):
     def _dump_yaml(self, destination_file: pathlib.Path):
         with open(destination_file, "w", encoding="utf-8") as yaml_file:
             try:
-                out_data = self.convert_dumped_configuration_data(self._data)
+                out_data = self.convert_dumped_configuration_data(self.exportable_data)
                 yaml_dump(out_data, yaml_file)
 
             except MarkedYAMLError as e:
@@ -256,7 +256,7 @@ class FileVariableSource(BaseVariableSource):
     def _dump_toml(self, destination_file: pathlib.Path):
         try:
             with open(destination_file, "w", encoding="utf-8") as toml_file:
-                out_data = self.convert_dumped_configuration_data(self._data)
+                out_data = self.convert_dumped_configuration_data(self.exportable_data)
                 toml = toml_dump(out_data)
                 toml_file.write(toml)
 
@@ -265,6 +265,14 @@ class FileVariableSource(BaseVariableSource):
                 f"Encountered unhandled exception while dumping TOML file '{str(destination_file)}': {e.args}",
                 self,
             ) from e
+
+    @property
+    def exportable_data(self):
+        return {
+            name: value
+            for name, value in self._data.items()
+            if name not in self._get_class_vars_by_annotated_type("excluded")
+        }
 
     def convert_loaded_configuration_value(self, key: str, value: Any):
         for suffix, converter in self._key_suffix_to_type_loader_func.items():
@@ -295,7 +303,7 @@ class FileVariableSource(BaseVariableSource):
     def convert_dumped_configuration_data(
         self, data: Union[dict[str, Any], list[Any], set[Any], tuple[Any]]
     ) -> Union[dict[str, Any], list[Any]]:
-        if data == self._data:
+        if data == self.exportable_data:
             for key, value in data.items():
                 data[key] = self.convert_dumped_configuration_value(value)
             return data

@@ -9,7 +9,6 @@ class ASubClassOfSingletonConfig(SingletonConfig):
         super().__init__(**kwargs)
 
 
-
 def new_instance_of_singleton():
     return ASubClassOfSingletonConfig(var2=2)
 
@@ -28,14 +27,14 @@ class ConfigWithClassAttrs(Config):
     class_attr_1 = 1
 
 
+class SingletonConfigWithClassAttrs(SingletonConfig):
+    class_attr_1 = 1
+
+
 class ConfigWithInstanceAttrs(Config):
     def __init__(self, **kwargs):
         self.instance_var_1 = 1
         super().__init__(**kwargs)
-
-
-class SingletonConfigWithClassAttrs(SingletonConfig):
-    class_attr_1 = 1
 
 
 class SingletonConfigWithInstanceAttrs(SingletonConfig):
