@@ -115,6 +115,19 @@ class BaseVariableSource:
     def get_by_prefix(self, prefix: str, trim_prefix: bool = True) -> dict[str, Any]:
         return self._get_by_prefix(self._sanitized_data(), prefix, trim_prefix)
 
+    def get_by_annotated_type(self, annotation: Any):
+        type_hints = get_type_hints(self, include_extras=True)
+        if not type_hints:
+            return {}
+
+        return {
+            attr_name: self.get(attr_name)
+            for attr_name, hint in type_hints.items()
+            if hasattr(self, attr_name)
+            and hasattr(hint, "__metadata__")
+            and annotation in hint.__metadata__
+        }
+
     def set(self, key: str, value: Any):
         if not self._is_valid_key_name(key):
             message = (
@@ -198,23 +211,6 @@ class BaseVariableSource:
 
     def as_dict(self, copy: bool = True):
         return self._data.copy() if copy else self._data
-
-    def _get_class_vars_by_annotated_type(self, annotation: Any):
-        """
-        Returns class vars whose Annotated types match 'annotation'.
-        Does not work for instance attributes, such as those declared in __init__()
-        """
-        type_hints = get_type_hints(self, include_extras=True)
-        if not type_hints:
-            return {}
-
-        return {
-            attr_name: self.get(attr_name)
-            for attr_name, hint in type_hints.items()
-            if hasattr(self, attr_name)
-            and hasattr(hint, "__metadata__")
-            and annotation in hint.__metadata__
-        }
 
     def __len__(self):
         return len(self._data)
