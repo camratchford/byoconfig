@@ -10,7 +10,6 @@ def singleton__new__method(_kls) -> Callable[..., Any]:
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             with _singleton_lock:
-                # Double-check pattern
                 if cls._instance is None:
                     cls._instance = super(_kls, cls).__new__(cls)
         return cls._instance
