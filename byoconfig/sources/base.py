@@ -1,7 +1,7 @@
 import logging
 import re
 from re import compile
-from typing import Any
+from typing import Any, get_type_hints
 
 
 from byoconfig.error import BYOConfigError
@@ -198,6 +198,20 @@ class BaseVariableSource:
 
     def as_dict(self, copy: bool = True):
         return self._data.copy() if copy else self._data
+
+    def _get_class_vars_by_annotated_type(self, annotation: Any):
+        """
+        Returns class vars whose Annotated types match 'annotation'.
+        Does not work for instance attributes, such as those declared in __init__()
+        """
+        type_hints = get_type_hints(self, include_extras=True)
+        if not type_hints:
+            return {}
+
+        return {
+            attr_name: self.get(attr_name) for attr_name, hint in type_hints.items() if
+            hasattr(self, attr_name) and hasattr(hint, "__metadata__") and annotation in hint.__metadata__
+        }
 
     def __len__(self):
         return len(self._data)
