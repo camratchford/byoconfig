@@ -433,16 +433,14 @@ def test_annotated_attrs():
 
     config = ConfigWithAnnotatedAttrs()
 
-    assert config._get_class_vars_by_annotated_type("something")
-    assert config._get_class_vars_by_annotated_type("something") == {
+    assert config.get_by_annotated_type("something")
+    assert config.get_by_annotated_type("something") == {
         "class_var_annotated": "should appear",
         "class_var_that_gets_value_later": "should also appear",
     }
 
-    assert config._get_class_vars_by_annotated_type(int)
-    assert config._get_class_vars_by_annotated_type(int) == {
-        "class_var_with_type": "123"
-    }
+    assert config.get_by_annotated_type(int)
+    assert config.get_by_annotated_type(int) == {"class_var_with_type": "123"}
 
 
 def test_dumping_excluded_attrs():

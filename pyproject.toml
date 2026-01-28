@@ -1,7 +1,7 @@
 [project]
 name = "byoconfig"
-version = "1.2.2"
-description = "A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more."
+version = "1.2.3"
+description = "A dependency injection configuration class supporting multiple file formats, environment variables, AWS Secrets Manager, singletons, and more."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [

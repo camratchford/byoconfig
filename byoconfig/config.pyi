@@ -255,6 +255,26 @@ class Config(EnvVariableSource, FileVariableSource, SecretsManagerVariableSource
         """
         ...
 
+    def get_by_annotated_type(self, annotation: Any):
+        """
+        Returns class vars whose `typing.Annotated` types match 'annotation'.
+        Does not work for instance attributes, such as those declared in __init__()
+
+        Args:
+            annotation (Any):
+                The value given to a class variable's `typing.Annotated` annotation.
+                Example:
+                    Where:
+                       `annotation=str` would include my_class_var_2
+
+                       `annotation="something"` would include my_class_var_1 and my_class_var_2
+
+                    my_class_var_1: Annotated[int, "something"] = 1
+
+                    my_class_var_2: Annotated[str, "something"] = "ABC"
+
+        """
+
     def set(self, key: str, value: Any):
         """
         Return a value from the configuration data key.
