@@ -24,3 +24,11 @@ class SingletonConfig(Config):
         cls._instance = None
         cls.__new__ = singleton__new__method(SingletonConfig)
         super(SingletonConfig, cls).__init_subclass__(**kwargs)
+
+
+class SingletonMetaclass(type):
+    def __call__(cls, *args, **kwargs):
+        with _singleton_lock:
+            if not hasattr(cls, "_instance"):
+                cls._instance = super().__call__(*args, **kwargs)
+        return cls._instance
