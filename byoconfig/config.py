@@ -33,7 +33,7 @@ class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource
         )
 
         self.name = kwargs.pop("config_name", self.__class__.__name__)
-        self._assign_attrs = kwargs.pop("config_assign_attrs", False)
+        self._assign_attrs = kwargs.pop("config_assign_attrs", True)
         self.update(**kwargs.pop("config_data", {}))
         if kwargs:
             load_from_file_kwargs = {
