@@ -2,21 +2,20 @@
 
 > Bring your own configuration
 
-[![Tests Passing](https://github.com/camratchford/byoconfig/actions/workflows/lint_and_test.yml/badge.svg)](https://github.com/camratchford/byoconfig/actions/workflows/lint_and_test.yml)
-[![Build](https://github.com/camratchford/byoconfig/actions/workflows/publish.yml/badge.svg)](https://github.com/camratchford/byoconfig/actions/workflows/publish.yml)
-[![PyPi Version](https://img.shields.io/pypi/v/byoconfig)](https://pypi.org/project/byoconfig/)
+A dependency injection configuration class supporting multiple file formats, environment variables, AWS Secrets Manager, singletons, and more.
 
 ## Features
 
-- Loading/Dumping configuration data from/to:
+- Loading/Dumping configuration data using:
   - YAML
   - TOML
   - JSON
-- File format auto-detect and override options
-- Ability to load configuration data from environment variables
-- Allows hierarchical data to be loaded, then updated according to precedence rules.
-- Extensible via plugins, allowing your own arbitrary data sources to be merged with config file and environment data.
-- Configuration data available as class attributes (ex. `config.variable_1`)
+  - Environment Variables
+- Loading secrets from AWS Secrets Manager
+- File type detection
+- Imported value type conversion to `pathlib.Path`, `datetime.datetime`, `datetime.date`
+- Filtering configuration data by key name prefix
+- Filtering configuration data by a `typing.Annotated` type.
 
 ## Installing
 
@@ -148,6 +147,8 @@ conf.data = {"my_var": "abc"}
 
 ### Dumping Data
 
+An example of dumping the contents of your config to a file.
+
 ```python
 from byoconfig import Config
 
@@ -161,5 +162,86 @@ conf = Config()
 conf.dump_to_file("running_config.yml")
 # Overriding the auto-detect in case you have no extension
 conf.dump_to_file("running_config", forced_type="TOML")
+```
 
+An example of excluding configuration data from the `dump_to_file` method output.
+
+```python
+from typing import Annotated
+
+from byoconfig import Config
+
+# Create a subclass of Config
+class MyConfig(Config):
+    # The type annotation must appear in the class body and must be assigned a value. For example: None or "" 
+    not_critically_secret_data: str = "This can be exported to file"
+    super_secret_data: Annotated[str, "excluded"] = ""
+
+# Initialize your instance, defining the value of your super secret data. Like an API key or something you don't want to share.
+config = MyConfig(env_selected_keys=['super_secret_data'])
+# The contents of the resulting file will not contain 'super_secret_data' or any data annotated with "excluded"
+config.dump_to_file("my_config.json")
+```
+
+### Filtering Data
+
+#### By Key Name Prefix
+
+We can group our configuration data by the kwargs for a function/method/class, prefixing each parameter with a name.
+
+Using `uvicorn` as the prefix to supply kwargs to `uvicorn.run`:
+
+```python
+
+import uvicorn
+from byoconfig import Config
+
+# like fastapi or starlette
+from my_app.asgi import asgi_app
+
+
+class AppConfig(Config):
+    uvicorn_port = 8889
+    uvicorn_host = "127.0.0.1"
+    uvicorn_log_level = "info"
+
+
+def run_server():
+    config = AppConfig()
+    
+    # Results in the dict: {'port': 8889, 'host': '127.0.0.1', 'log_level': 'info'}
+    uvicorn_kwargs = config.get_by_prefix("uvicorn", trim_prefix=True)
+    
+    uvicorn.run(asgi_app, **uvicorn_kwargs)
+
+```
+
+#### By Annotated Type
+
+We can group our configuration data in arbitrary categories by supplying a type annotation via `typing.Annotated`
+
+Same example as before, but with annotations.
+
+```python
+from typing import Annotated
+
+import uvicorn
+from byoconfig import Config
+
+from my_app.asgi import asgi_app
+
+
+class AppConfig(Config):
+    port: Annotated[int, "uvicorn"] = 8889
+    host: Annotated[str, "uvicorn"]  = "127.0.0.1"
+    log_level: Annotated[str, "uvicorn"]  = "info"
+
+
+def run_server():
+    config = AppConfig()
+    
+    # Results in the dict: {'port': 8889, 'host': '127.0.0.1', 'log_level': 'info'}
+    uvicorn_kwargs = config.get_by_annotated_type("uvicorn")
+    
+    uvicorn.run(asgi_app, **uvicorn_kwargs)
 ```

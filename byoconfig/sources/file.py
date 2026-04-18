@@ -280,7 +280,7 @@ class FileVariableSource(BaseVariableSource):
         return {
             name: value
             for name, value in self._data.items()
-            if name not in self._get_class_vars_by_annotated_type("excluded")
+            if name not in self.get_by_annotated_type("excluded")
         }
 
     def convert_loaded_configuration_value(self, key: str, value: Any):
