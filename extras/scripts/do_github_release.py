@@ -1,5 +1,5 @@
-from os import getenv
 from argparse import ArgumentParser
+from os import getenv
 
 from github import Github
 

@@ -1,8 +1,9 @@
-import subprocess
+import re
 import site
+import subprocess
 from pathlib import Path
 from sys import exit
-import re
+
 from packaging.version import Version
 
 this_directory = Path(__file__).parent

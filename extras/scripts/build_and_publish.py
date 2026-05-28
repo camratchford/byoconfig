@@ -1,16 +1,16 @@
-from pathlib import Path
-from argparse import ArgumentParser
 import shutil
-
-import build
+from argparse import ArgumentParser
+from pathlib import Path
 
 import twine.commands.upload
 from twine.settings import Settings
 
+import build
+
 from .common import (
-    project_root,
-    check_package_installed_as_editable,
     check_branch,
+    check_package_installed_as_editable,
+    project_root,
 )
 
 default_dist_path = project_root / "dist"

@@ -1,16 +1,5 @@
-from byoconfig.sources.base import BaseVariableSource
 from byoconfig.config import Config
-from byoconfig.singleton import SingletonConfig
-
-
-class ASubClassOfSingletonConfig(SingletonConfig):
-    def __init__(self, **kwargs):
-        self.set("var3", 3)
-        super().__init__(**kwargs)
-
-
-def new_instance_of_singleton():
-    return ASubClassOfSingletonConfig(var2=2)
+from byoconfig.sources.base import BaseVariableSource
 
 
 class PluginVarSource(BaseVariableSource):
@@ -27,17 +16,8 @@ class ConfigWithClassAttrs(Config):
     class_attr_1 = 1
 
 
-class SingletonConfigWithClassAttrs(SingletonConfig):
-    class_attr_1 = 1
-
-
 class ConfigWithInstanceAttrs(Config):
     def __init__(self, **kwargs):
         self.instance_var_1 = 1
         super().__init__(**kwargs)
 
-
-class SingletonConfigWithInstanceAttrs(SingletonConfig):
-    def __init__(self, **kwargs):
-        self.instance_var_1 = 1
-        super().__init__(**kwargs)

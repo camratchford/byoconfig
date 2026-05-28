@@ -48,7 +48,8 @@ development = [
     "ruff",
     "pytest",
     "build",
-    "twine"
+    "twine",
+    "isort"
 ]
 
 [build-system]
@@ -79,6 +80,11 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 docstring-code-format = false
 docstring-code-line-length = "dynamic"
+
+[tool.isort]
+profile = "black"
+line_length = 119
+skip_gitignore = true
 
 [tool.pytest.ini_options]
 addopts = "-ra -q"

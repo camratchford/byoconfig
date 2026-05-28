@@ -1,8 +1,9 @@
 import logging
 import re
+from builtins import set as _set
+from inspect import ismethod
 from re import compile
 from typing import Any, get_type_hints
-
 
 from byoconfig.error import BYOConfigError
 
@@ -57,30 +58,21 @@ class BaseVariableSource:
               should not be imported or exported to this set.
     """
 
+    # __annotations__ = {}
     name: str = ""
-    _metadata: set[str] = {"name", "_metadata", "_assign_attrs", "_data"}
+    _metadata: _set[str] = {"name", "_metadata", "_assign_attrs", "_data"}
     _assign_attrs: bool = False
     _data: dict[str, Any] = {}
 
     def _is_valid_key_name(self, key: str):
-        return not key.startswith("_") and key not in self._metadata
+        a_method = hasattr(self, key) and ismethod(getattr(self, key))
+        return not key.startswith("_") and key not in self._metadata and not a_method
 
     def _sanitized_data(self) -> dict:
-        return {
-            k: v
-            for k, v in filter(
-                lambda key_val: self._is_valid_key_name(key_val[0]), self._data.items()
-            )
-        }
+        return {k: v for k, v in self._data.items() if self._is_valid_key_name(k)}
 
     def _sanitized_attrs(self):
-        return {
-            k: v
-            for k, v in filter(
-                lambda key_val: self._is_valid_key_name(key_val[0]),
-                self.__dict__.items(),
-            )
-        }
+        return {k: v for k, v in self.__dict__.items() if self._is_valid_key_name(k)}
 
     def get(self, key: str, default: Any = None):
         if key in self._sanitized_data():
@@ -115,17 +107,32 @@ class BaseVariableSource:
     def get_by_prefix(self, prefix: str, trim_prefix: bool = True) -> dict[str, Any]:
         return self._get_by_prefix(self._sanitized_data(), prefix, trim_prefix)
 
+    @classmethod
+    def get_type_annotations(cls):
+        try:
+            type_hints = {
+                name: (
+                    typ,
+                    typ.__metadata__[0] if hasattr(typ, "__metadata__") else None,
+                )
+                for name, typ in get_type_hints(cls, include_extras=True).items()
+            }
+
+            return type_hints
+
+        except TypeError:
+            raise
+
     def get_by_annotated_type(self, annotation: Any):
-        type_hints = get_type_hints(self, include_extras=True)
+        type_hints = self.get_type_annotations()
+
         if not type_hints:
             return {}
 
         return {
             attr_name: self.get(attr_name)
-            for attr_name, hint in type_hints.items()
-            if hasattr(self, attr_name)
-            and hasattr(hint, "__metadata__")
-            and annotation in hint.__metadata__
+            for attr_name in type_hints.keys()
+            if annotation in type_hints[attr_name]
         }
 
     def set(self, key: str, value: Any):
@@ -163,18 +170,18 @@ class BaseVariableSource:
 
             self._data[key] = value
 
+    def _convert_value(self, key: str, value: Any) -> Any:
+        """Hook for subclasses to normalize values on ingestion. No-op by default."""
+        return value
+
     def update(self, data: dict[str, Any] = None, /, **kwargs):
-        values = {}
-        if data is not None:
-            values = data
+        values = data if data is not None else {}
         if kwargs:
             values = kwargs
-
         if not values:
             return
-
-        for k, v in values.items():
-            self.set(k, v)
+        for key, value in values.items():
+            self.set(key, self._convert_value(key, value))
 
     def delete_item(self, key: str):
         del self._data[key]

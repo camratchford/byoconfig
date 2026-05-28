@@ -1,30 +1,30 @@
-import logging
-from typing import Callable, Literal, Optional, Any, Union
 import datetime
+import logging
 import pathlib
-from json import loads as json_load
+import re
 from json import dumps as json_dump
+from json import loads as json_load
 from json.decoder import JSONDecodeError
+from typing import Any, Callable, Literal, Optional
 
-from yaml import safe_load as yaml_load
-from yaml import dump as yaml_dump
-from yaml.error import MarkedYAMLError
-from toml import load as toml_load
 from toml import dumps as toml_dump
+from toml import load as toml_load
 from toml.decoder import TomlDecodeError
+from yaml import dump as yaml_dump
+from yaml import safe_load as yaml_load
+from yaml.error import MarkedYAMLError
 
 from byoconfig.error import BYOConfigError
 from byoconfig.sources.base import BaseVariableSource
 from byoconfig.sources.type_conversion import (
     get_date_from_date_str,
-    get_datetime_from_datetime_str,
-    get_path_from_path_str,
-    get_path_str_from_path,
-    get_datetime_str_from_datetime,
     get_date_str_from_datetime,
+    get_datetime_from_datetime_str,
+    get_datetime_str_from_datetime,
+    get_path_from_path_str,
     get_path_list_from_path_str_list,
+    get_path_str_from_path,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,10 @@ class FileVariableSource(BaseVariableSource):
 
     _file_types: set[str] = {"JSON", "YAML", "TOML"}
     _file_method_types: set[str] = {"load", "dump"}
+    _annotations = {}
     _metadata: set[str] = BaseVariableSource._metadata.union(
         {
+            "_annotations",
             "_file_types",
             "_file_method_types",
             "_valid_implied_types",
@@ -52,25 +54,26 @@ class FileVariableSource(BaseVariableSource):
     def __init__(self, **kwargs):
         super().__init__()
         self._key_suffix_to_type_loader_func = {
-            "_path": get_path_from_path_str,
-            "_file": get_path_from_path_str,
-            "_dir": get_path_from_path_str,
             "_paths": get_path_list_from_path_str_list,
             "_files": get_path_list_from_path_str_list,
             "_dirs": get_path_list_from_path_str_list,
-            "_date": get_date_from_date_str,
+            "_path": get_path_from_path_str,
+            "_file": get_path_from_path_str,
+            "_dir": get_path_from_path_str,
             "_datetime": get_datetime_from_datetime_str,
+            "_date": get_date_from_date_str,
         }
         self._type_to_type_dumper_func = {
-            datetime.date: get_date_str_from_datetime,
-            datetime.datetime: get_datetime_str_from_datetime,
-            pathlib.Path: get_path_str_from_path,
+            "date": get_date_str_from_datetime,
+            "datetime": get_datetime_str_from_datetime,
+            "Path": get_path_str_from_path,
+            "PosixPath": get_path_str_from_path,
             # Blindly cast into a list, JSON and TOML don't support tuples or sets
-            tuple: self.convert_dumped_configuration_data,
-            set: self.convert_dumped_configuration_data,
+            "tuple": self.convert_dumped_configuration_data,
+            "set": self.convert_dumped_configuration_data,
             # Recurse, ensuring types are cast throughout the data structure
-            list: self.convert_dumped_configuration_data,
-            dict: self.convert_dumped_configuration_data,
+            "list": self.convert_dumped_configuration_data,
+            "dict": self.convert_dumped_configuration_data,
         }
 
     def load_from_file(
@@ -283,9 +286,21 @@ class FileVariableSource(BaseVariableSource):
             if name not in self.get_by_annotated_type("excluded")
         }
 
+    def _convert_value(self, key: str, value: Any) -> Any:
+        if isinstance(value, dict):
+            return self.convert_loaded_data(value)
+        for suffix, converter in self._key_suffix_to_type_loader_func.items():
+            if key.endswith(suffix):
+                return self.convert_loaded_configuration_value(key, value)
+        if isinstance(value, (list, set, tuple)):
+            return self.convert_dumped_configuration_data(value)
+        return self.convert_loaded_configuration_value(key, value)
+
     def convert_loaded_configuration_value(self, key: str, value: Any):
         for suffix, converter in self._key_suffix_to_type_loader_func.items():
             if key.endswith(suffix):
+                if isinstance(value, (pathlib.Path, datetime.date, datetime.datetime)):
+                    return value
                 try:
                     return converter(value)
                 except (ValueError, TypeError) as e:
@@ -293,6 +308,11 @@ class FileVariableSource(BaseVariableSource):
                         f"Could not convert '{key}' using {converter.__name__}: {e}",
                         self,
                     )
+        if isinstance(value, str):
+            datetime_converter = self.identify_datetime_converter(time_string=value)
+            if datetime_converter:
+                return datetime_converter(value)
+
         return value
 
     def convert_loaded_data(self, data: dict[str, Any]) -> dict[str, Any]:
@@ -303,23 +323,63 @@ class FileVariableSource(BaseVariableSource):
                 data[key] = self.convert_loaded_configuration_value(key, value)
         return data
 
-    def convert_dumped_configuration_value(self, value: Any):
-        for _type, converter in self._type_to_type_dumper_func.items():
-            if isinstance(value, _type):
-                return converter(value)
+    def convert_dumped_configuration_value(self, key: str, value: Any):
+        annotated_type, annotation = self._annotations.get(key, (None, None))
+
+        if annotated_type and annotated_type.__name__ in self._type_to_type_dumper_func:
+            return self._type_to_type_dumper_func[annotated_type.__name__](value)
+
+        if type(value).__name__ in self._type_to_type_dumper_func:
+            return self._type_to_type_dumper_func[type(value).__name__](value)
+
         return value
 
-    def convert_dumped_configuration_data(
-        self, data: Union[dict[str, Any], list[Any], set[Any], tuple[Any]]
-    ) -> Union[dict[str, Any], list[Any]]:
-        if data == self.exportable_data:
-            for key, value in data.items():
-                data[key] = self.convert_dumped_configuration_value(value)
-            return data
-        if isinstance(data, list) or isinstance(data, set) or isinstance(data, tuple):
-            data_copy = [self.convert_dumped_configuration_value(i) for i in data]
-            return data_copy
-        else:
-            for key, value in data.items():
-                data[key] = self.convert_dumped_configuration_value(value)
+    def convert_dumped_configuration_data(self, data: Any):
+        if isinstance(data, dict):
+            return {
+                key: self.convert_dumped_configuration_value(key, value)
+                for key, value in data.items()
+            }
+        if isinstance(data, (list, set, tuple)):
+            return [
+                self._type_to_type_dumper_func[type(item).__name__](item)
+                if type(item).__name__ in self._type_to_type_dumper_func
+                else item
+                for item in data
+            ]
         return data
+
+    def identify_datetime_converter(self, time_string: str):
+        regex_patterns = [
+            r"^(?P<year>[0-9]{4})",
+            r"-(?P<month>1[0-2]|0[1-9])",
+            r"-(?P<day>0[1-9]|[1-2][0-9]|3[0-1])",
+            r"T(?P<hours>[0-2][0-9])",
+            r":(?P<minutes>[0-5][0-9])",
+            r":(?P<seconds>[0-5][0-9])",
+            (
+                r"(?P<tz_offset>"
+                r"(?P<tz_offset_sign>[\+\-])"
+                r"(?P<tz_offset_hours>[0-2][0-9])"
+                r":(?P<tz_offset_minutes>[0-5][0-9])"
+                r")"
+            ),
+        ]
+
+        results = {}
+        remaining = time_string
+        patterns = regex_patterns.copy()
+
+        for pattern in patterns:
+            match = re.match(pattern, remaining)
+            if match:
+                results.update(match.groupdict())
+                remaining = remaining[match.end() :]
+
+        required_fields = ("year", "month", "day")
+        if all(results.get(field) for field in required_fields):
+            if len(results) > 3:
+                return self._key_suffix_to_type_loader_func["_datetime"]
+            return self._key_suffix_to_type_loader_func["_date"]
+
+        return None

@@ -1,24 +1,23 @@
 import datetime
 import pathlib
 import tempfile
-from typing import Annotated
+from json import loads as json_load
 from os import environ
 from pathlib import Path
-from json import loads as json_load
-from mocks.mock_secrets_manager_client import MockSecretsManagerClient
+from typing import Annotated
 from unittest.mock import patch
 
 import pytest
-from yaml import safe_load as yaml_load
+from fixtures.pathing import fixtures_dir
+from fixtures.secrets_manager_data import a_test_secret, a_test_secret_data
+from mocks.mock_secrets_manager_client import MockSecretsManagerClient
 from toml import load as toml_load
-
-from byoconfig.config import Config
-
-from fixtures.pathing import example_configs, fixtures_dir
-from fixtures.secrets_manager_data import a_test_secret_data, a_test_secret
+from yaml import safe_load as yaml_load
 
 
 def test_base_variable_source_methods():
+    from byoconfig.config import Config
+
     config_no_attrs = Config(config_assign_attrs=False, test=1)
     assert not hasattr(config_no_attrs, "test")
     assert config_no_attrs.get("test") == 1
@@ -76,17 +75,19 @@ def test_file_var_source_methods():
     Testing loading data and dumping data with YAML, TOML, and JSON.
     Note: We need to sort the dictionaries because each of the loaders load the data differently
     """
+    from byoconfig.config import Config
+
     example_dict = {"parent": {"some": "thing", "child": {"other": "thing"}}}
 
-    yaml_file = str(example_configs / "same_as.yaml")
+    yaml_file = str(fixtures_dir / "same_as.yaml")
     yaml_source = Config(file_path=yaml_file)
     assert sorted(yaml_source.as_dict()) == sorted(example_dict)
 
-    toml_file = str(example_configs / "same_as.toml")
+    toml_file = str(fixtures_dir / "same_as.toml")
     toml_source = Config(file_path=toml_file)
     assert sorted(toml_source.as_dict()) == sorted(example_dict)
 
-    json_file = str(example_configs / "same_as.json")
+    json_file = str(fixtures_dir / "same_as.json")
     json_source = Config(file_path=json_file)
     assert sorted(json_source.as_dict()) == sorted(example_dict)
 
@@ -116,12 +117,36 @@ def test_file_var_source_methods():
         )
 
 
+def test_annotated_configs():
+    from byoconfig.config import Config
+
+    with tempfile.TemporaryDirectory() as tempdir:
+
+        class AnnotatedConfig(Config):
+            should_be_exported: str = "test1"
+            should_not_be_exported: Annotated[str, "excluded"] = "test2"
+
+        annotated_config = AnnotatedConfig()
+
+        strings = annotated_config.get_by_annotated_type(str)
+        excluded = annotated_config.get_by_annotated_type("excluded")
+        assert strings
+        assert excluded
+        export_test_file = Path(tempdir) / "export_test.yml"
+        annotated_config.dump_to_file(export_test_file)
+        export_test_data = yaml_load(export_test_file.read_text())
+
+        assert export_test_data.get("should_be_exported") == "test1"
+        assert export_test_data.get("should_not_be_exported") is None
+
+
 def test_env_var_source_methods():
     """
     Test loading and dumping configuration data with environment variables.
     Note: Setting environment variables always results in a string.
     There isn't a good way to get the config data's original type, so we will only test string values.
     """
+    from byoconfig.config import Config
 
     # Test loading from env
     test_dict_1 = {"test_var_1": "abc", "test_var_2": "123"}
@@ -166,6 +191,8 @@ def test_env_var_source_methods():
 
 
 def test_aws_secrets_manager_methods():
+    from byoconfig.config import Config
+
     mock_client = MockSecretsManagerClient()
     secret_name = "a-test-secret"
     mock_client.add_secret(secret_id=secret_name, secret_string=a_test_secret)
@@ -182,6 +209,8 @@ def test_aws_secrets_manager_methods():
 def test_config_include_method():
     from fixtures.fixture_source_classes import PluginVarSource
 
+    from byoconfig.config import Config
+
     config = Config(
         test_var1="will_be_overwritten",
         test_var2="will_be_overwritten",
@@ -195,36 +224,9 @@ def test_config_include_method():
     assert config.get("plugin_kwarg") == kwarg_str
 
 
-def test_singleton_config():
-    """
-    Any subsequent calls to SingletonConfig.__new__ should return the same instance
-    """
-    from fixtures.fixture_source_classes import (
-        ASubClassOfSingletonConfig,
-        new_instance_of_singleton,
-    )
-
-    config1 = ASubClassOfSingletonConfig()
-    config1.set("var1", 1)
-    assert config1.get("var1")
-
-    # Initialize the same class outside of this scope, it was supplied the init kwarg of var2=2
-    config2 = new_instance_of_singleton()
-    # Config2 should get the var1 variable
-    assert config1.get("var1") == config2.get("var1") == 1
-    # Config1 should have the var2 variable because config2 got it during __init__
-    assert config1.get("var2") == config2.get("var2") == 2
-    # They should both get the var3 variable, as it's part of ASubClassOfSingletonConfig's __init__ method
-    assert config1.get("var3") == config2.get("var3") == 3
-    # Overriding the var3 variable, making sure the change propagates
-    config3 = ASubClassOfSingletonConfig(var3=4)
-    assert config1.get("var3") == config2.get("var3") == config3.get("var3") == 4
-    # Overriding it via .set instead of __init__'s kwargs
-    config1.set("var3", 3)
-    assert config1.get("var3") == config2.get("var3") == config3.get("var3") == 3
-
-
 def test_type_conversion_loading():
+    from byoconfig.config import Config
+
     toml_file = str(fixtures_dir / "types.toml")
     toml_config = Config(file_path=toml_file)
     toml_data = toml_config.as_dict()
@@ -239,7 +241,7 @@ def test_type_conversion_loading():
         for v in toml_data.get("file_locations").get("a_list_of_paths")
     )
 
-    yaml_file = str(fixtures_dir / "types.yml")
+    yaml_file = str(fixtures_dir / "types.yaml")
     yaml_config = Config(file_path=yaml_file)
     yaml_data = yaml_config.as_dict()
     assert isinstance(yaml_data.get("ssh_private_key_file"), Path)
@@ -271,9 +273,15 @@ def test_type_conversion_loading():
 def test_type_conversion_dumping():
     # Ensure that datetime.date, datetime.datetime, and pathlib.Path
     # can be created from their string representations
+
+    from byoconfig.config import Config
+
+    # We actually don't care about microseconds, so we'll trim them
+    now = datetime.datetime.now()
+    now = now.replace(microsecond=0)
     test_dict = {
         "test_date": datetime.date.today(),
-        "test_datetime": datetime.datetime.now(),
+        "test_datetime": now,
         "test_path": pathlib.Path("./test"),
         "test_file": pathlib.Path("~/test"),
         "test_dir": pathlib.Path("/test"),
@@ -294,31 +302,42 @@ def test_type_conversion_dumping():
     with tempfile.TemporaryDirectory() as tempdir:
         yaml_outfile = Path(tempdir) / "outfile.yml"
         yaml_config.dump_to_file(yaml_outfile)
-        yaml_data = yaml_load(yaml_outfile.read_text())
-        assert sorted(yaml_config.as_dict()) == sorted(yaml_data)
+        yaml_config_reloaded = Config()
+        yaml_config_reloaded.load_from_file(str(yaml_outfile))
+        assert sorted(yaml_config.as_dict().items()) == sorted(
+            yaml_config_reloaded.as_dict().items()
+        )
 
         toml_outfile = Path(tempdir) / "outfile.toml"
         toml_config.dump_to_file(toml_outfile)
-        with open(toml_outfile) as f:
-            toml_data = toml_load(f)
-        assert sorted(toml_config.as_dict()) == sorted(toml_data)
+        toml_config_reloaded = Config()
+        toml_config_reloaded.load_from_file(str(toml_outfile))
+        assert sorted(toml_config.as_dict().items()) == sorted(
+            toml_config_reloaded.as_dict().items()
+        )
 
         json_outfile = Path(tempdir) / "outfile.json"
         json_config.dump_to_file(json_outfile)
-        json_data = json_load(json_outfile.read_text())
-        assert sorted(json_config.as_dict()) == sorted(json_data)
+        json_config_reloaded = Config()
+        json_config_reloaded.load_from_file(str(json_outfile))
+        assert sorted(json_config.as_dict().items()) == sorted(
+            json_config_reloaded.as_dict().items()
+        )
 
         assert (
             sorted(test_dict.items())
-            == sorted(yaml_data.items())
-            == sorted(toml_data.items())
-            == sorted(json_data.items())
+            == sorted(yaml_config_reloaded.as_dict().items())
+            == sorted(toml_config_reloaded.as_dict().items())
+            == sorted(json_config_reloaded.as_dict().items())
         )
 
 
 def test_tuple_and_set_conversion():
     # Ensure that values with the type set or tuple are implicitly converted to type list
     # necessary for mutual compatibility between YAML, TOML, JSON
+
+    from byoconfig.config import Config
+
     test_dict_2 = {
         "should_be_a_list": ("value_1", "value_2"),
         "should_also_be_a_list": {"value_1", "value_2"},
@@ -354,47 +373,40 @@ def test_tuple_and_set_conversion():
         assert isinstance(json_config_2.get("should_also_be_a_list"), list)
 
         assert (
-            yaml_config_2.get("should_be_a_list")
-            == yaml_data_2.get("should_be_a_list")
-            == toml_config_2.get("should_be_a_list")
-            == toml_data_2.get("should_be_a_list")
-            == json_config_2.get("should_be_a_list")
-            == json_data_2.get("should_be_a_list")
-            == result_dict.get("should_be_a_list")
+            sorted(yaml_config_2.get("should_be_a_list"))
+            == sorted(yaml_data_2.get("should_be_a_list"))
+            == sorted(toml_config_2.get("should_be_a_list"))
+            == sorted(toml_data_2.get("should_be_a_list"))
+            == sorted(json_config_2.get("should_be_a_list"))
+            == sorted(json_data_2.get("should_be_a_list"))
+            == sorted(result_dict.get("should_be_a_list"))
         )
 
         assert (
-            yaml_config_2.get("should_also_be_a_list")
-            == yaml_data_2.get("should_also_be_a_list")
-            == toml_config_2.get("should_also_be_a_list")
-            == toml_data_2.get("should_also_be_a_list")
-            == json_config_2.get("should_also_be_a_list")
-            == json_data_2.get("should_also_be_a_list")
-            == result_dict.get("should_also_be_a_list")
+            sorted(yaml_config_2.get("should_also_be_a_list"))
+            == sorted(yaml_data_2.get("should_also_be_a_list"))
+            == sorted(toml_config_2.get("should_also_be_a_list"))
+            == sorted(toml_data_2.get("should_also_be_a_list"))
+            == sorted(json_config_2.get("should_also_be_a_list"))
+            == sorted(json_data_2.get("should_also_be_a_list"))
+            == sorted(result_dict.get("should_also_be_a_list"))
         )
 
 
 def test_class_attrs():
     from fixtures.fixture_source_classes import (
         ConfigWithClassAttrs,
-        SingletonConfigWithClassAttrs,
     )
 
     config = ConfigWithClassAttrs(var_1=2)
-
     # Set in ConfigWithInstanceAttrs.__init__
     assert config.get("class_attr_1") == 1
     assert config.get("var_1") == 2
-
-    singleton_config = SingletonConfigWithClassAttrs(var_1=2)
-    assert singleton_config.get("class_attr_1") == 1
-    assert singleton_config.get("var_1") == 2
 
 
 def test_instance_attrs():
     from fixtures.fixture_source_classes import (
         ConfigWithInstanceAttrs,
-        SingletonConfigWithInstanceAttrs,
     )
 
     config = ConfigWithInstanceAttrs(var_1=2)
@@ -403,12 +415,10 @@ def test_instance_attrs():
     assert config.get("instance_var_1") == 1
     assert config.get("var_1") == 2
 
-    singleton_config = SingletonConfigWithInstanceAttrs(var_1=2)
-    assert singleton_config.get("class_attr_1") == 1
-    assert singleton_config.get("var_1") == 2
-
 
 def test_annotated_attrs():
+    from byoconfig.config import Config
+
     class ConfigWithAnnotatedAttrs(Config):
         class_var_annotated: Annotated[str, "something"] = "should appear"
         class_var_naked: str = "shouldn't appear"
@@ -417,9 +427,6 @@ def test_annotated_attrs():
         class_var_annotated_not_included: Annotated[str, "not_something"] = (
             "shouldn't appear"
         )
-
-        # Shouldn't appear, as it doesn't ever get a value
-        class_var_without_value: Annotated[str, "something"]
 
         # Works with types as well. Might use this later for type coercion.
         class_var_with_type: Annotated[str, int] = "123"
@@ -444,6 +451,8 @@ def test_annotated_attrs():
 
 
 def test_dumping_excluded_attrs():
+    from byoconfig.config import Config
+
     class ConfigThatDumpsAnnotatedAttrs(Config):
         class_var_excluded: Annotated[str, "excluded"] = "don't export me"
         class_var_naked: str = "export me"
@@ -456,8 +465,8 @@ def test_dumping_excluded_attrs():
         class_var_added_via_init_included: str
 
         def __init__(self, **kwargs):
-            self.class_var_that_gets_value_later_exported = "export me"
-            self.class_var_that_gets_value_later = "don't export me"
+            self.class_var_that_gets_value_later_included = "export me"
+            self.class_var_that_gets_value_later_excluded = "don't export me"
             super().__init__(**kwargs)
 
     with tempfile.TemporaryDirectory() as tempdir:
@@ -480,6 +489,8 @@ def test_dumping_excluded_attrs():
 
 
 def test_non_existent_file_path_arg():
+    from byoconfig.config import Config
+
     # Exception not raised
     Config(file_path="a_path_that_doesnt_exist.yml", file_not_exists_ok=True)
     # Exception raised

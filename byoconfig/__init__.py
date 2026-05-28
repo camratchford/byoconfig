@@ -1,4 +1,4 @@
 from .config import Config
-from .singleton import SingletonConfig
+from .singleton import SingletonMetaclass
 
-__all__ = ["Config", "SingletonConfig"]
+__all__ = ["Config", "SingletonMetaclass"]

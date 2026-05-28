@@ -1,4 +1,4 @@
-from byoconfig.sources.type_conversion import collapse_mapping, collapse_iterable
+from byoconfig.sources.type_conversion import collapse_iterable, collapse_mapping
 
 
 def test_collapse_mapping():

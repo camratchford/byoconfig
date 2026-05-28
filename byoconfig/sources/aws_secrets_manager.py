@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 from json import JSONDecodeError
 
 import boto3
@@ -64,7 +64,3 @@ class SecretsManagerVariableSource(BaseVariableSource):
                 f"Encountered a JSON decode error while parsing secret payload: {e.args}",
                 self,
             ) from e
-
-    # def dump_to_secrets_manager(self, **aws_client_kwargs):
-    #     ...
-    #     # todo:
