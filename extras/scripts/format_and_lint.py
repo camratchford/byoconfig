@@ -2,8 +2,8 @@ from argparse import ArgumentParser
 from subprocess import CompletedProcess
 
 from .common import (
-    run,
     check_package_installed_as_editable,
+    run,
 )
 
 

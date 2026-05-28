@@ -245,3 +245,37 @@ def run_server():
     
     uvicorn.run(asgi_app, **uvicorn_kwargs)
 ```
+
+
+## Singleton
+
+byoconfig comes with the `SingletonMetaclass` class.
+This is useful in cases where dependency injection is difficult, like when using the `factory` design pattern.
+
+```python
+from byoconfig import Config, SingletonMetaclass
+
+
+class SingletonConfig(Config, metaclass=SingletonMetaclass):
+    test_1 = "one"
+
+
+def load_data():
+    # Running __init__ will return the initial instance from __main__
+    config = SingletonConfig()
+    # test_2 is overwritten, test_3 is added
+    more_data = {"test_2": 2, "test_3": "III"}
+    config.update(more_data)
+
+
+if __name__ == "__main__":
+    initial_config = SingletonConfig(test_2="two", test_4="0100")
+    load_data()
+    print(initial_config.as_dict())
+```
+
+Will return (not guaranteed to be in the same order):
+```
+{'test_1': 'one', 'test_2': 2, 'test_4': '0100', 'test_3': 'III'}
+```
+

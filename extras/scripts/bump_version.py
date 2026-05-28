@@ -1,14 +1,14 @@
+import argparse
 import re
 import sys
-from packaging.version import Version
-import argparse
 
+from packaging.version import Version
 
 from .common import (
-    run,
+    check_package_installed_as_editable,
     get_current_version,
     pyproject_dot_toml,
-    check_package_installed_as_editable,
+    run,
 )
 
 

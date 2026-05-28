@@ -1,6 +1,9 @@
+from typing import Annotated
+
+
 def test_singleton_out_of_scope():
-    from byoconfig.singleton import SingletonMetaclass
     from byoconfig.config import Config
+    from byoconfig.singleton import SingletonMetaclass
 
     class SingletonConfigClass(Config, metaclass=SingletonMetaclass):
         class_attr_1 = 2
@@ -13,11 +16,11 @@ def test_singleton_out_of_scope():
 
 
 def test_singleton_metaclass():
-    from byoconfig.singleton import SingletonMetaclass
     from byoconfig.config import Config
+    from byoconfig.singleton import SingletonMetaclass
 
     class SingletonConfigClass(Config, metaclass=SingletonMetaclass):
-        class_attr_1 = 1
+        class_attr_1: Annotated[str, "exclude"] = 1
 
     singleton = SingletonConfigClass(instance_attr_1=1, config_assign_attrs=True)
     new_singleton = SingletonConfigClass()

@@ -1,9 +1,8 @@
+from collections.abc import Iterable, Mapping, Reversible
 from datetime import date, datetime
 from pathlib import Path
+from re import Pattern, compile
 from typing import Any, Union
-from re import compile, Pattern
-from collections.abc import Mapping, Iterable, Reversible
-
 
 supported_export_types: set[type] = {
     str,
@@ -96,18 +95,18 @@ def collapse_iterable(iterable: Union[Iterable, Reversible]):
 
 
 def get_date_from_date_str(maybe_date_str: str):
+    if not isinstance(maybe_date_str, str):
+        return maybe_date_str
     try:
-        return datetime.strptime(
-            maybe_date_str,
-            "%Y-%m-%d",
-        )
+        return datetime.strptime(maybe_date_str, "%Y-%m-%d").date()
     except ValueError:
-        pass
-
-    return None
+        raise ValueError(f"Could not parse '{maybe_date_str}' as a date")
 
 
 def get_datetime_from_datetime_str(maybe_datetime_str: str):
+    if isinstance(maybe_datetime_str, date) or isinstance(maybe_datetime_str, datetime):
+        return maybe_datetime_str
+
     for fmt in valid_datetime_formats:
         try:
             return datetime.strptime(maybe_datetime_str, fmt)
@@ -141,11 +140,12 @@ def get_date_str_from_datetime(datetime_obj: datetime):
 
 
 def get_path_from_path_str(path_str: str):
+    if not isinstance(path_str, str):
+        return path_str
     try:
         return Path(path_str)
     except (TypeError, ValueError):
-        pass
-    return path_str
+        raise
 
 
 def get_path_list_from_path_str_list(path_str_list: list[str]):

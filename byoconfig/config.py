@@ -1,14 +1,14 @@
 import logging
-from typing import Type
 from inspect import ismethod
+from typing import Type
 
+from byoconfig.error import BYOConfigError
 from byoconfig.sources import (
     BaseVariableSource,
-    FileVariableSource,
     EnvVariableSource,
+    FileVariableSource,
     SecretsManagerVariableSource,
 )
-from byoconfig.error import BYOConfigError
 
 __all__ = ["Config"]
 
@@ -27,7 +27,17 @@ class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource
     """
 
     def __init__(self, **kwargs):
+
+        self._data = {}
         super().__init__(**kwargs)
+
+        class_attributes = {
+            k: v
+            for k, v in self.__class__.__dict__.items()
+            if self._is_valid_key_name(k)
+        }
+        self._data.update(class_attributes)
+
         self._metadata = self._metadata.union(
             {name for name in self.__dir__() if ismethod(getattr(self, name))}
         )
@@ -65,17 +75,7 @@ class Config(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource
             self.update(**update_kwargs)
 
         self._load_instance_attrs()
-
-    def __init_subclass__(cls, **kwargs):
-        """
-        Ensures class attributes are loaded as configuration data.
-        """
-        class_attributes = {
-            k: v for k, v in cls.__dict__.items() if cls._is_valid_key_name(cls, k)
-        }
-        if class_attributes:
-            cls._data.update(class_attributes)
-        return cls
+        self._annotations = self.get_type_annotations()
 
     def _load_instance_attrs(self):
         instance_attrs = {
