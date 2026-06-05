@@ -116,8 +116,11 @@ def get_datetime_from_datetime_str(maybe_datetime_str: str):
 
 
 def get_path_str_from_path(path: Path):
-    path_str = path.as_posix()
-    return path_str
+    if isinstance(path, str):
+        path = Path(path)
+    if not isinstance(path, Path):
+        return path
+    return path.as_posix()
 
 
 def get_path_str_list_from_path_list(path_list: list[Path]):
