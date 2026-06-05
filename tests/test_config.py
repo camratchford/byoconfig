@@ -276,6 +276,9 @@ def test_type_conversion_dumping():
 
     from byoconfig.config import Config
 
+    class ConversionTestConfig(Config):
+        test_none_dir: Path = None
+
     # We actually don't care about microseconds, so we'll trim them
     now = datetime.datetime.now()
     now = now.replace(microsecond=0)
@@ -285,6 +288,7 @@ def test_type_conversion_dumping():
         "test_path": pathlib.Path("./test"),
         "test_file": pathlib.Path("~/test"),
         "test_dir": pathlib.Path("/test"),
+        "test_none_dir": None,
         "test_files": [
             pathlib.Path("test1"),
             pathlib.Path("test2"),
@@ -295,14 +299,14 @@ def test_type_conversion_dumping():
         },
     }
 
-    yaml_config = Config(**test_dict)
-    toml_config = Config(**test_dict)
-    json_config = Config(**test_dict)
+    yaml_config = ConversionTestConfig(**test_dict)
+    toml_config = ConversionTestConfig(**test_dict)
+    json_config = ConversionTestConfig(**test_dict)
 
     with tempfile.TemporaryDirectory() as tempdir:
         yaml_outfile = Path(tempdir) / "outfile.yml"
         yaml_config.dump_to_file(yaml_outfile)
-        yaml_config_reloaded = Config()
+        yaml_config_reloaded = ConversionTestConfig()
         yaml_config_reloaded.load_from_file(str(yaml_outfile))
         assert sorted(yaml_config.as_dict().items()) == sorted(
             yaml_config_reloaded.as_dict().items()
@@ -310,7 +314,7 @@ def test_type_conversion_dumping():
 
         toml_outfile = Path(tempdir) / "outfile.toml"
         toml_config.dump_to_file(toml_outfile)
-        toml_config_reloaded = Config()
+        toml_config_reloaded = ConversionTestConfig()
         toml_config_reloaded.load_from_file(str(toml_outfile))
         assert sorted(toml_config.as_dict().items()) == sorted(
             toml_config_reloaded.as_dict().items()
@@ -318,7 +322,7 @@ def test_type_conversion_dumping():
 
         json_outfile = Path(tempdir) / "outfile.json"
         json_config.dump_to_file(json_outfile)
-        json_config_reloaded = Config()
+        json_config_reloaded = ConversionTestConfig()
         json_config_reloaded.load_from_file(str(json_outfile))
         assert sorted(json_config.as_dict().items()) == sorted(
             json_config_reloaded.as_dict().items()
