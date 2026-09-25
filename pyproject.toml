@@ -1,13 +1,13 @@
 [project]
 name = "byoconfig"
-version = "2.0.1"
-description = "A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more."
+dynamic = ["version"]
+description = "A configuration class supporting multiple file formats, environment variables, AWS Secrets Manager, singletons, and more."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     {name = "Cam Ratchford", email = "camratchford@gmail.com"},
 ]
-keywords = ["config", "yaml", "toml", "json", "plugins"]
+keywords = ["config", "yaml", "toml", "json", "environment", "secrets-manager"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -17,7 +17,6 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
-    "Environment :: Plugins",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: File Formats",
@@ -33,23 +32,12 @@ dependencies = [
 Homepage = "https://github.com/camratchford/byoconfig"
 Source = "https://github.com/camratchford/byoconfig"
 
-[project.scripts]
-byoconfig-version-bump = "byoconfig.scripts.bump_version:cli"
-byoconfig-build-and-publish = "byoconfig.scripts.build_and_publish:cli"
-byoconfig-format-and-lint = "byoconfig.scripts.format_and_lint:cli"
-byoconfig-run-tests = "byoconfig.scripts.run_tests:cli"
-byoconfig-do-release = "byoconfig.scripts.do_github_release:cli"
-
 [project.optional-dependencies]
 development = [
-    "setuptools",
-    "mkdocs",
-    "mkdocs-material",
     "ruff",
+    "isort",
     "pytest",
-    "build",
-    "twine",
-    "isort"
+    "pytest-cov"
 ]
 
 [build-system]
@@ -57,8 +45,10 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["byoconfig", "byoconfig.sources", "byoconfig.scripts"]
-package-dir = {"byoconfig" = "byoconfig", "byoconfig.sources" = "byoconfig/sources", "byoconfig.scripts" = "extras/scripts"}
+packages = ["byoconfig", "byoconfig.sources"]
+package-dir = {"byoconfig" = "byoconfig", "byoconfig.sources" = "byoconfig/sources"}
+
+[tool.setuptools_scm]
 
 
 [tool.ruff]
@@ -90,4 +80,14 @@ skip_gitignore = true
 addopts = "-ra -q"
 testpaths = [
     "tests",
+]
+
+[tool.coverage.run]
+source = ["byoconfig"]
+branch = true
+
+[tool.coverage.report]
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
 ]

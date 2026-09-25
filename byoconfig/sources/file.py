@@ -1,30 +1,19 @@
-import datetime
 import logging
-import pathlib
-import re
 from json import dumps as json_dump
 from json import loads as json_load
 from json.decoder import JSONDecodeError
-from typing import Any, Callable, Literal, Optional
+from pathlib import Path
+from typing import Any, Callable, Literal, Mapping, Optional
 
 from toml import dumps as toml_dump
 from toml import load as toml_load
 from toml.decoder import TomlDecodeError
-from yaml import dump as yaml_dump
+from yaml import safe_dump as yaml_dump
 from yaml import safe_load as yaml_load
 from yaml.error import MarkedYAMLError
+from yaml.representer import RepresenterError
 
-from byoconfig.error import BYOConfigError
 from byoconfig.sources.base import BaseVariableSource
-from byoconfig.sources.type_conversion import (
-    get_date_from_date_str,
-    get_date_str_from_datetime,
-    get_datetime_from_datetime_str,
-    get_datetime_str_from_datetime,
-    get_path_from_path_str,
-    get_path_list_from_path_str_list,
-    get_path_str_from_path,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -39,102 +28,79 @@ class FileVariableSource(BaseVariableSource):
 
     _file_types: set[str] = {"JSON", "YAML", "TOML"}
     _file_method_types: set[str] = {"load", "dump"}
-    _annotations = {}
-    _metadata: set[str] = BaseVariableSource._metadata.union(
-        {
-            "_annotations",
-            "_file_types",
-            "_file_method_types",
-            "_valid_implied_types",
-            "_key_suffix_to_type_loader_func",
-            "_type_to_type_dumper_func",
-        }
-    )
+    _file_prevent_export_annotations: set[str | type[Any]] = {"excluded"}
+    """
+    If the type annotation of a config key is typing.Annotated[self._prevent_export_annotations], 
+    that key/value will not be exported when the self.dump_to_file method is run and will not appear 
+    in self.exported_data.
+    """
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        self._key_suffix_to_type_loader_func = {
-            "_paths": get_path_list_from_path_str_list,
-            "_files": get_path_list_from_path_str_list,
-            "_dirs": get_path_list_from_path_str_list,
-            "_path": get_path_from_path_str,
-            "_file": get_path_from_path_str,
-            "_dir": get_path_from_path_str,
-            "_datetime": get_datetime_from_datetime_str,
-            "_date": get_date_from_date_str,
-        }
-        self._type_to_type_dumper_func = {
-            "date": get_date_str_from_datetime,
-            "datetime": get_datetime_str_from_datetime,
-            "Path": get_path_str_from_path,
-            "PosixPath": get_path_str_from_path,
-            # Blindly cast into a list, JSON and TOML don't support tuples or sets
-            "tuple": self.convert_dumped_configuration_data,
-            "set": self.convert_dumped_configuration_data,
-            # Recurse, ensuring types are cast throughout the data structure
-            "list": self.convert_dumped_configuration_data,
-            "dict": self.convert_dumped_configuration_data,
-        }
+    def get_data_from_file(
+        self,
+        path: Path | str | None = None,
+        forced_type: FileTypes = None,
+        enforce_mapping_type: bool = False,
+        not_exists_ok: bool = False,
+    ):
+        if path is None and not_exists_ok:
+            return {}
+
+        if not path:
+            raise TypeError(
+                f"Invalid path argument. Expected non-empty str or Path type — got {type(path)}"
+            )
+
+        path = Path(path)
+
+        if not path.exists():
+            if not_exists_ok:
+                return {}
+
+            raise FileNotFoundError(f"Config file {path.as_posix()} does not exist")
+
+        extension = self._determine_file_type(path, forced_type)
+        method = self._map_extension_to_load_method(extension, method_type="load")
+        configuration_data = method(path)
+        if enforce_mapping_type and not isinstance(configuration_data, Mapping):
+            raise TypeError(
+                f"Top-level data structure in {path.as_posix()} is not a Mapping "
+                f"— got {type(configuration_data).__name__}"
+            )
+
+        logger.debug(f"Read configuration data from '{str(path)}' as '{extension}'")
+
+        return configuration_data
 
     def load_from_file(
         self,
-        path: str = None,
+        path: Path | str | None = None,
         forced_type: FileTypes = None,
+        enforce_mapping_type: bool = False,
         not_exists_ok: bool = False,
     ):
-        if not path:
-            return
-        try:
-            path = pathlib.Path(path)
-        except Exception as e:
-            raise BYOConfigError(
-                f"An exception occurred while loading file '{str(path)}': {e.args}",
-                self,
-            )
+        data = self.get_data_from_file(
+            path,
+            forced_type,
+            enforce_mapping_type,
+            not_exists_ok,
+        )
+        self.update(**data)
 
-        if not path.exists() and not_exists_ok:
-            return
-
-        if not path.exists():
-            raise FileNotFoundError(f"Config file {str(path)} does not exist")
-
-        try:
-            extension = self._determine_file_type(path, forced_type)
-            method = self._map_extension_to_load_method(extension, method_type="load")
-            configuration_data = method(path)
-
-            logger.debug(f"Read configuration data from '{str(path)}' as '{extension}'")
-
-            self.update(**configuration_data)
-
-        except Exception as e:
-            raise BYOConfigError(e.args[0], self)
-
-    def dump_to_file(
-        self, destination_path: pathlib.Path, forced_type: FileTypes = None
-    ):
-        destination_path = pathlib.Path(destination_path)
-        if not destination_path.parent.exists():
-            destination_path.mkdir(mode=0o755, parents=True)
-
+    def dump_to_file(self, destination_path: Path, forced_type: FileTypes = None):
+        destination_path = Path(destination_path)
         file_type = self._determine_file_type(destination_path, forced_type)
-        method = self._map_extension_to_load_method(file_type, method_type="dump")
+        serialize = self._map_extension_to_load_method(file_type, method_type="dump")
+        file_contents = serialize()
 
-        try:
-            method(destination_path)
-            logger.debug(
-                f"Dumped configuration data to '{destination_path}' as '{file_type}'"
-            )
-
-        except Exception as e:
-            raise BYOConfigError(
-                f"Failed to dump file {destination_path} with type {file_type}: {e.args}",
-                self,
-            )
+        destination_path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+        destination_path.write_text(file_contents, encoding="utf-8")
+        logger.debug(
+            f"Dumped configuration data to '{destination_path}' as '{file_type}'"
+        )
 
     @staticmethod
     def _determine_file_type(
-        source_file: pathlib.Path, forced_file_type: FileTypes = None
+        source_file: Path, forced_file_type: FileTypes = None
     ) -> FileTypes:
         """
         Determines the file type of the source file. (One of 'JSON', 'YAML', 'TOML')
@@ -152,12 +118,12 @@ class FileVariableSource(BaseVariableSource):
                 f"{str(ALLOWED_EXTENSIONS)}"
             )
         elif forced_file_type:
-            if forced_file_type not in ALLOWED_EXTENSIONS:
+            extension = f".{forced_file_type.lower()}"
+            if extension not in ALLOWED_EXTENSIONS:
                 raise ValueError(
-                    f"Forced file type '{forced_file_type}' is not one of the allowed file extensions: "
-                    f"{str(ALLOWED_EXTENSIONS)}"
+                    f"Forced file type '{forced_file_type}' is not one of the allowed file types: "
+                    f"{str(FileVariableSource._file_types)}"
                 )
-            extension = f".{forced_file_type}"
 
         file_type: FileTypes = extension.lstrip(".").upper()  # type: ignore
         logger.debug(f"Determined file '{str(source_file)}' to be type '{file_type}'")
@@ -166,220 +132,91 @@ class FileVariableSource(BaseVariableSource):
 
     def _map_extension_to_load_method(
         self, file_type: FileTypes, method_type: Literal["load", "dump"]
-    ) -> Callable[[pathlib.Path], dict]:
+    ) -> Callable[..., Any]:
         """
         Maps the file typed (JSON, YAML, or TOML) to the appropriate load or dump method.
         """
         method_name = f"_{method_type}_{file_type.lower()}"
 
         if not hasattr(self, method_name):
-            raise BYOConfigError(
+            raise ValueError(
                 f"No FileVariableSource method exists for file type: '.{file_type.lower()}' "
-                f"with operation {method_type}",
-                self,
+                f"with operation {method_type}"
             )
 
         return getattr(self, method_name)
 
-    def _load_json(self, source_file: pathlib.Path) -> dict[Any, Any]:
+    def _load_json(self, source_file: Path) -> dict[Any, Any]:
         try:
             file_contents = source_file.read_text()
+            if not file_contents.strip():
+                return {}
             data = json_load(file_contents)
-            return self.convert_loaded_data(data)
+            if data:
+                return data
+            return {}
 
         except UnicodeDecodeError as e:
-            raise BYOConfigError(
-                f"Encountered Unicode error while decoding file '{str(source_file)}': {e.args}",
-                self,
+            raise ValueError(
+                f"Encountered Unicode error while decoding file '{str(source_file)}': {e.args}"
             ) from e
 
         except JSONDecodeError as e:
-            raise BYOConfigError(
-                f"Encountered JSON error while decoding file '{str(source_file)}': {e.args}",
-                self,
+            raise ValueError(
+                f"Encountered JSON error while decoding file '{str(source_file)}': {e.args}"
             ) from e
 
-    def _dump_json(self, destination_file: pathlib.Path):
-        try:
-            with open(destination_file, "w", encoding="utf-8") as json_file:
-                out_data = self.convert_dumped_configuration_data(self.exportable_data)
-                json = json_dump(out_data, indent=4)
-                json_file.write(json)
-        except Exception as e:
-            raise BYOConfigError(
-                f"Encountered an unhandled exception while dumping JSON file '{str(destination_file)}': {e.args}",
-                self,
-            ) from e
+    def _dump_json(self) -> str:
+        return json_dump(self.exportable_data, indent=4)
 
-    def _load_yaml(self, source_file: pathlib.Path) -> dict[Any, Any]:
+    def _load_yaml(self, source_file: Path) -> dict[Any, Any]:
         try:
             with open(source_file, "r") as file:
                 data = yaml_load(file)
-                return self.convert_loaded_data(data)
+                if data:
+                    return data
+                return {}
 
         except MarkedYAMLError as e:
-            raise BYOConfigError(
-                f"Encountered YAML Error while decoding YAML file '{str(source_file)}': {e.args}",
-                self,
+            raise ValueError(
+                f"Encountered YAML Error while decoding YAML file '{str(source_file)}': {e.args}"
             ) from e
 
     # Alias for load_yaml so the extension .yml can be used
     _load_yml = _load_yaml
 
-    def _dump_yaml(self, destination_file: pathlib.Path):
-        with open(destination_file, "w", encoding="utf-8") as yaml_file:
-            try:
-                out_data = self.convert_dumped_configuration_data(self.exportable_data)
-                yaml_dump(out_data, yaml_file)
+    def _dump_yaml(self) -> str:
+        try:
+            return yaml_dump(self.exportable_data)
 
-            except MarkedYAMLError as e:
-                raise BYOConfigError(
-                    f"Encountered YAML error while dumping YAML file {str(destination_file)}: {e.args}",
-                    self,
-                ) from e
-
-            except Exception as e:
-                raise BYOConfigError(
-                    f"Encountered unhandled exception while dumping YAML file '{str(destination_file)}': {e}",
-                    self,
-                ) from e
+        except RepresenterError as e:
+            raise TypeError(
+                f"Encountered unrepresentable value while dumping YAML: {e.args}"
+            ) from e
 
     # Alias for dump_yaml so the extension .yml can be used
     _dump_yml = _dump_yaml
 
-    def _load_toml(self, source_file: pathlib.Path) -> dict[Any, Any]:
+    def _load_toml(self, source_file: Path) -> dict[Any, Any]:
         try:
             with open(source_file, "r") as file:
                 data = toml_load(file)
-                return self.convert_loaded_data(data)
+                if data:
+                    return data
+                return {}
 
         except TomlDecodeError as e:
-            raise BYOConfigError(
-                f"Encountered TOML decode error while loading TOML file '{str(source_file)}': {e.args}",
-                self,
+            raise ValueError(
+                f"Encountered TOML decode error while loading TOML file '{str(source_file)}': {e.args}"
             ) from e
 
-        except Exception as e:
-            raise BYOConfigError(
-                f"Encountered unhandled exception while loading TOML file '{str(source_file)}': {e.args}",
-                self,
-            ) from e
-
-    def _dump_toml(self, destination_file: pathlib.Path):
-        try:
-            with open(destination_file, "w", encoding="utf-8") as toml_file:
-                out_data = self.convert_dumped_configuration_data(self.exportable_data)
-                toml = toml_dump(out_data)
-                toml_file.write(toml)
-
-        except Exception as e:
-            raise BYOConfigError(
-                f"Encountered unhandled exception while dumping TOML file '{str(destination_file)}': {e.args}",
-                self,
-            ) from e
+    def _dump_toml(self) -> str:
+        return toml_dump(self.exportable_data)
 
     @property
     def exportable_data(self):
         return {
             name: value
-            for name, value in self._data.items()
+            for name, value in self._accssible_data.items()
             if name not in self.get_by_annotated_type("excluded")
         }
-
-    def _convert_value(self, key: str, value: Any) -> Any:
-        if isinstance(value, dict):
-            return self.convert_loaded_data(value)
-        for suffix, converter in self._key_suffix_to_type_loader_func.items():
-            if key.endswith(suffix):
-                return self.convert_loaded_configuration_value(key, value)
-        if isinstance(value, (list, set, tuple)):
-            return self.convert_dumped_configuration_data(value)
-        return self.convert_loaded_configuration_value(key, value)
-
-    def convert_loaded_configuration_value(self, key: str, value: Any):
-        for suffix, converter in self._key_suffix_to_type_loader_func.items():
-            if key.endswith(suffix):
-                if isinstance(value, (pathlib.Path, datetime.date, datetime.datetime)):
-                    return value
-                try:
-                    return converter(value)
-                except (ValueError, TypeError) as e:
-                    raise BYOConfigError(
-                        f"Could not convert '{key}' using {converter.__name__}: {e}",
-                        self,
-                    )
-        if isinstance(value, str):
-            datetime_converter = self.identify_datetime_converter(time_string=value)
-            if datetime_converter:
-                return datetime_converter(value)
-
-        return value
-
-    def convert_loaded_data(self, data: dict[str, Any]) -> dict[str, Any]:
-        for key, value in data.items():
-            if isinstance(value, dict):
-                data[key] = self.convert_loaded_data(value)
-            else:
-                data[key] = self.convert_loaded_configuration_value(key, value)
-        return data
-
-    def convert_dumped_configuration_value(self, key: str, value: Any):
-        annotated_type, annotation = self._annotations.get(key, (None, None))
-
-        if annotated_type and annotated_type.__name__ in self._type_to_type_dumper_func:
-            return self._type_to_type_dumper_func[annotated_type.__name__](value)
-
-        if type(value).__name__ in self._type_to_type_dumper_func:
-            return self._type_to_type_dumper_func[type(value).__name__](value)
-
-        return value
-
-    def convert_dumped_configuration_data(self, data: Any):
-        if isinstance(data, dict):
-            return {
-                key: self.convert_dumped_configuration_value(key, value)
-                for key, value in data.items()
-            }
-        if isinstance(data, (list, set, tuple)):
-            return [
-                self._type_to_type_dumper_func[type(item).__name__](item)
-                if type(item).__name__ in self._type_to_type_dumper_func
-                else item
-                for item in data
-            ]
-        return data
-
-    def identify_datetime_converter(self, time_string: str):
-        regex_patterns = [
-            r"^(?P<year>[0-9]{4})",
-            r"-(?P<month>1[0-2]|0[1-9])",
-            r"-(?P<day>0[1-9]|[1-2][0-9]|3[0-1])",
-            r"T(?P<hours>[0-2][0-9])",
-            r":(?P<minutes>[0-5][0-9])",
-            r":(?P<seconds>[0-5][0-9])",
-            (
-                r"(?P<tz_offset>"
-                r"(?P<tz_offset_sign>[\+\-])"
-                r"(?P<tz_offset_hours>[0-2][0-9])"
-                r":(?P<tz_offset_minutes>[0-5][0-9])"
-                r")"
-            ),
-        ]
-
-        results = {}
-        remaining = time_string
-        patterns = regex_patterns.copy()
-
-        for pattern in patterns:
-            match = re.match(pattern, remaining)
-            if match:
-                results.update(match.groupdict())
-                remaining = remaining[match.end() :]
-
-        required_fields = ("year", "month", "day")
-        if all(results.get(field) for field in required_fields):
-            if len(results) > 3:
-                return self._key_suffix_to_type_loader_func["_datetime"]
-            return self._key_suffix_to_type_loader_func["_date"]
-
-        return None
