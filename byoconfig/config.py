@@ -12,8 +12,6 @@ __all__ = ["BYOConfig"]
 logger = logging.getLogger(__name__)
 
 
-class BYOConfig(FileVariableSource, EnvVariableSource, SecretsManagerVariableSource):
-    ...
-
-
-
+class BYOConfig(
+    FileVariableSource, EnvVariableSource, SecretsManagerVariableSource
+): ...
