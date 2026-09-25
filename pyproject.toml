@@ -1,13 +1,13 @@
 [project]
 name = "byoconfig"
 version = "2.0.1"
-description = "A configuration class that supports plugins, multiple file formats, heirarchical configuration, and more."
+description = "A configuration class supporting multiple file formats, environment variables, AWS Secrets Manager, singletons, and more."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     {name = "Cam Ratchford", email = "camratchford@gmail.com"},
 ]
-keywords = ["config", "yaml", "toml", "json", "plugins"]
+keywords = ["config", "yaml", "toml", "json", "environment", "secrets-manager"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
@@ -17,7 +17,6 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
-    "Environment :: Plugins",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: File Formats",

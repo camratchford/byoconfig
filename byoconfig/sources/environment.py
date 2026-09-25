@@ -2,9 +2,8 @@ import logging
 import platform
 from os import environ
 from re import compile
-from typing import Optional
+from typing import Any, Optional
 
-from byoconfig.error import BYOConfigError
 from byoconfig.sources.base import BaseVariableSource
 
 logger = logging.getLogger(__name__)
@@ -18,91 +17,55 @@ class EnvVariableSource(BaseVariableSource):
     A VariableSource that loads data from environment variables.
     """
 
+    _env_prefix: str | None = None
+
     def load_from_environment(
         self,
-        selected_keys: list[str] = None,
         prefix: Optional[str] = None,
         trim_prefix: bool = True,
     ):
-        if selected_keys and not prefix:
-            return
-
-        if selected_keys:
-            if not all(isinstance(key, str) for key in selected_keys):
-                invalid_keys = [
-                    key for key in selected_keys if not isinstance(key, str)
-                ]
-                raise BYOConfigError(
-                    f"Could not dump selected configuration data keys '{invalid_keys}' as environment variables "
-                    "as they are not of type 'str'",
-                    self,
-                )
-            missing_keys = {k for k in selected_keys if k not in environ}
-            if missing_keys:
-                raise BYOConfigError(
-                    f"Could not load selected configuration data keys from environment: "
-                    f"'{missing_keys}' environment variables are not defined.",
-                    self,
-                )
-
-            data = {k.lower(): environ.get(k) for k in selected_keys}
-
-            self.update(data)
-
-            logger.debug(
-                f"Loaded environment variables '{selected_keys}' as configuration data."
-            )
 
         if not prefix:
             return
 
         if not isinstance(prefix, str):
-            raise BYOConfigError("prefix must be a string", self)
+            raise TypeError("prefix must be a string")
 
         if prefix == "*":
             # We can ignore trim_prefix
-            self._update_skip_invalid(dict(environ))
+            self._update_skip_invalid({k.lower(): v for k, v in environ.items()})
             logger.debug("Loaded all environment variables as configuration data")
 
             return
 
         if not VALID_ENV_VAR.match(prefix):
-            raise BYOConfigError(
+            raise ValueError(
                 f"Could not load configuration data form environment: "
-                f"env_prefix '{prefix}' must be a valid environment variable name",
-                self,
+                f"env_prefix '{prefix}' must be a valid environment variable name"
             )
 
-        try:
-            # Windows stores environment variables keys as upper case.
-            # We must convert the prefix to uppercase so we can match the case
-            if platform.system() == "Windows":
-                prefix = prefix.upper()
+        # Windows stores environment variables keys as upper case.
+        # We must convert the prefix to uppercase so we can match the case
+        if platform.system() == "Windows":
+            prefix = prefix.upper()
 
-            data = self._get_by_prefix(dict(environ), prefix, trim_prefix)
+        data = self._get_by_prefix(dict(environ), prefix, trim_prefix)
+        data = {k.lower(): v for k, v in data.items()}
 
-            data = {k.lower(): v for k, v in data.items()}
-
-        except Exception as e:
-            raise BYOConfigError(
-                f"Error occurred while loading env vars: {e.args}", self
-            )
-
-        self.update(data)
+        self._update_skip_invalid(data)
         logger.debug(f"Loaded environment variables with prefix: {prefix}")
 
     def dump_to_environment(
         self,
         selected_keys: list[str] = None,
         use_uppercase: bool = True,
-        with_prefix: str = None,
+        with_prefix: str | None = None,
     ):
         if selected_keys and not all(isinstance(key, str) for key in selected_keys):
             invalid_keys = [key for key in selected_keys if not isinstance(key, str)]
-            raise BYOConfigError(
+            raise TypeError(
                 f"Could not dump selected configuration data keys as environment variables: "
-                f"Configuration data keys '{invalid_keys}' are not of type 'str'",
-                self,
+                f"Configuration data keys '{invalid_keys}' are not of type 'str'"
             )
 
         keys = self.keys()
@@ -110,35 +73,37 @@ class EnvVariableSource(BaseVariableSource):
             keys = selected_keys
             missing_keys = [key for key in keys if key not in self.keys()]
             if missing_keys:
-                raise BYOConfigError(
+                raise KeyError(
                     f"Could not dump selected configuration data keys as environment variables: "
-                    f"Configuration data keys '{missing_keys}' are not defined",
-                    self,
+                    f"Configuration data keys '{missing_keys}' are not defined"
                 )
 
         data = {k: self.get(k) for k in keys}
 
         if use_uppercase:
-            with_prefix = with_prefix.upper() if with_prefix else None
+            with_prefix = with_prefix.upper() if with_prefix else ""
             data = {k.upper(): v for k, v in data.items() if k}
 
         if not with_prefix:
-            for k, v in data.items():
-                environ[k] = str(v)
-
+            self._set_environment_variables(data)
             return
 
         if not VALID_ENV_VAR.match(with_prefix):
-            raise BYOConfigError(
+            raise ValueError(
                 f"Invalid environment variable prefix '{with_prefix}'."
-                f"Pattern must match '^[a-zA-Z_][a-zA-Z0-9_]*$'",
-                self,
+                f"Pattern must match '^[a-zA-Z_][a-zA-Z0-9_]*$'"
             )
 
-        with_prefix = with_prefix.rstrip("_")
-        try:
-            data = {f"{with_prefix}_{k}": str(v) for k, v in data.items()}
-            for k, v in data.items():
-                environ[k] = str(v)
-        except Exception as e:
-            raise e
+        with_prefix = with_prefix.rstrip("_") + "_" if with_prefix else ""
+        data = {f"{with_prefix}{k}": v for k, v in data.items()}
+        self._set_environment_variables(data)
+
+    @staticmethod
+    def _set_environment_variables(data: dict[str, Any]):
+        for name, value in data.items():
+            try:
+                environ[name] = str(value)
+            except (ValueError, OSError) as error:
+                raise ValueError(
+                    f"Could not set environment variable '{name}': {error}"
+                ) from error

@@ -1,8 +1,0 @@
-{
-    "parent": {
-        "some": "thing",
-        "child": {
-            "other": "thing"
-        }
-    }
-}

@@ -3,9 +3,7 @@ import logging
 from json import JSONDecodeError
 
 import boto3
-from boto3.exceptions import Boto3Error
 
-from byoconfig.error import BYOConfigError
 from byoconfig.sources.base import BaseVariableSource
 
 logger = logging.getLogger(__name__)
@@ -16,29 +14,15 @@ class SecretsManagerVariableSource(BaseVariableSource):
     A VariableSource that loads data from JSON encoded AWS Secrets Manager variables.
     """
 
-    _metadata: set[str] = BaseVariableSource._metadata.union(
-        {"_secrets_manager_client"}
-    )
-
     def _create_secrets_manager_client(self, **aws_client_kwargs):
-        try:
-            self._secrets_manager_client = boto3.client(
-                service_name="secretsmanager", **aws_client_kwargs
-            )
+        self._secrets_manager_client = boto3.client(
+            service_name="secretsmanager", **aws_client_kwargs
+        )
 
-        except Boto3Error as e:
-            raise BYOConfigError(
-                f"Encountered an unhandled boto3 error while creating the Secrets Manager client: {e.args}",
-                self,
-            ) from e
-        except Exception as e:
-            raise BYOConfigError(
-                f"Encountered an unhandled exception while creating the Secrets Manager client: {e.args}",
-                self,
-            ) from e
-
-    def load_from_secrets_manager(self, **aws_client_kwargs):
-        secret_name = aws_client_kwargs.pop("aws_secret_name", None)
+    def load_from_secrets_manager(
+        self, aws_secret_name: str | None = None, **aws_client_kwargs
+    ):
+        secret_name = aws_secret_name
         if secret_name is None:
             return
 
@@ -60,7 +44,6 @@ class SecretsManagerVariableSource(BaseVariableSource):
             self.update(configuration_data)
 
         except JSONDecodeError as e:
-            raise BYOConfigError(
-                f"Encountered a JSON decode error while parsing secret payload: {e.args}",
-                self,
+            raise ValueError(
+                f"Encountered a JSON decode error while parsing secret payload: {e.args}"
             ) from e
